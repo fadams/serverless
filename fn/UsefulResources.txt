@@ -1,0 +1,72 @@
+
+https://medium.com/fnproject
+
+The Fn Serverless Project is Now Available
+https://medium.com/fnproject/the-fn-serverless-project-is-now-available-fac2a442dfa8
+
+
+Getting started with Fn Project
+https://medium.com/fnproject/getting-started-with-fn-project-65c334b0a63f
+
+
+Deploy Full Serverless Applications with a Single Command
+https://medium.com/fnproject/deploy-full-serverless-applications-with-a-single-command-4f16e3707d26
+
+
+Distributed Fn: beyond “fn start”
+https://medium.com/fnproject/distributed-fn-beyond-fn-start-2ee0baf6fb77
+
+
+In-Home Serverless Voice Processing
+https://medium.com/fnproject/in-home-serverless-voice-processing-d10da422f0b9
+Note that despite the title this isn't really fully "in home" as it uses Google Home Actions to do the voice processing heavy lifting, so it's a bit misleading - but the serverless orchestration is all "non-cloud"
+
+
+
+Serverless and Recurrent Neural Networks with Fn, GraphPipe and TensorFlow
+https://medium.com/fnproject/serverless-and-recurrent-neural-networks-with-tensorflow-and-graphpipe-fc73785f1a16
+
+
+Even wider language support in Fn with init-images
+https://medium.com/fnproject/even-wider-language-support-in-fn-with-init-images-a7a1b3135a6e
+
+
+
+
+
+Fn Flow
+https://github.com/fnproject/flow
+
+Fn Flow lets you build long-running, reliable and scalable functions using Fn that only consume compute resources when they have work to do and are written purely in code. Flow supports building complex parallel processes that are readable, testable (including via unit testing) using standard programming tools. Flow empowers you to build workflows as distributed programs that are as complex as you need them to be and supports a rich set of concurrency primitives including fork-join, chaining, delays and error handling.
+
+
+
+
+Monitoring
+Fn Server exports metrics into Prometheus so that one can build nice dashboards in Grafana. There is a useful Fn Usage dashboard available here for import, see Grafana Examples
+https://github.com/fnproject/fn/tree/master/examples/grafana
+
+
+
+
+
+Not fn related, but interesting:
+How to make your own sentiment analyzer using Python and Google’s Natural Language API
+
+https://medium.freecodecamp.org/how-to-make-your-own-sentiment-analyzer-using-python-and-googles-natural-language-api-9e91e1c493e
+
+
+
+
+Data Modelling Stuff:
+
+https://cloudevents.io/
+A specification for describing event data in a common way. CloudEvents seeks to ease event declaration and delivery across services, platforms and beyond!
+
+CloudEvents is a new effort and it’s still under active development. However, its working group has received a surprising amount of industry interest, ranging from major cloud providers to popular SaaS companies. Our end goal is to offer this specification to the Cloud Native Computing Foundation.
+
+This effort is organized via the CNCF’s Serverless Working Group and everyone is encouraged to join us. If you’re interested in contributing, please collaborate with us in the CloudEvents Github Org, join our weekly call every Thursday at 9AM PT via Zoom, and review our Governance model to familiarize yourself with our process.
+
+
+
+

@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#   http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# fnproject/fn CLI in a Docker container.
+# It's a marginal gain over installing directly on the host
+# but the install instructions needed sudo and it wasn't clear
+# what was being installed and where, so Docker keeps things tidy.
+
+# Install fnproject/fn CLI note that this can exec Docker commands
+# so install docker-ce and bind-mount Docker socket in run command.
+
+# The -i option is important (and slightly subtle) here. Some API
+# calls work by piping data to stdin, for example something like
+# echo '{"name":"Johnny"}' | fn invoke myapp hello
+# so we must keep stdin open or those calls won't work as expected.
+# Similarly the -a flags are necessary or we won't see the results.
+mkdir -p $HOME/.fn
+docker run --rm -i \
+    -e FN_API_URL=http://$(hostname -I | awk '{print $1}'):8080 \
+    --group-add $(cut -d: -f3 < <(getent group docker)) \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -u $(id -u):$(id -g) \
+    -v /etc/passwd:/etc/passwd:ro \
+    -v $PWD:$PWD:rw \
+    -v $HOME/.fn:$HOME/.fn:rw \
+    -w $PWD \
+    fn $@
+    
