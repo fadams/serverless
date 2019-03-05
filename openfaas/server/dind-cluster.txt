@@ -1,0 +1,291 @@
+Initial run of dind-cluster-v1.13.sh up.
+This is mainly to see what the logs say to compare when I decide to hack
+around and try to get my own Kubernetes in Docker up and running 'cause I'd
+like to try a version that uses the host's Docker rather than Docker in Docker.
+That needs even more "persuasion" than using DinD because preflight checks
+check for things such as Docker service running via systemd.
+
+
+./dind-cluster-v1.13.sh up
+WARNING: No swap limit support
+WARNING: No swap limit support
+WARNING: No swap limit support
+WARNING: No swap limit support
+* Making sure DIND image is up to date 
+sha256:0fcb655948a1fa20f5a2100983755edc8f0d763248bda217b3454d82d5cd3be4: Pulling from mirantis/kubeadm-dind-cluster
+d2519f41f710: Pulling fs layer 
+62bc77b5a5bc: Pulling fs layer 
+89361b6165e2: Pulling fs layer 
+63fac53415a9: Pull complete 
+930aa6818f06: Pull complete 
+bd4bee337c9c: Pull complete 
+5c49605ff573: Pull complete 
+0e26591e6f37: Pull complete 
+cd34b4ad9820: Pull complete 
+713c4fd4a18c: Pull complete 
+ecf1b01d2e76: Pull complete 
+9f01d4f32321: Pull complete 
+d766b8e7abcf: Pull complete 
+666d57260e9c: Pull complete 
+ad4ef8b461d7: Pull complete 
+7edb5a935ce0: Pull complete 
+919e68ed781c: Pull complete 
+83c7a2d995dc: Pull complete 
+44506f621f1a: Pull complete 
+fb1598ae72e5: Pull complete 
+a096241fe1bf: Pull complete 
+21a3b05a94d6: Pull complete 
+ccef30e9fc36: Pull complete 
+3cdb2a50b191: Pull complete 
+3a9ba5b20a8a: Pull complete 
+0ccf60639047: Pull complete 
+Digest: sha256:0fcb655948a1fa20f5a2100983755edc8f0d763248bda217b3454d82d5cd3be4
+Status: Downloaded newer image for mirantis/kubeadm-dind-cluster@sha256:0fcb655948a1fa20f5a2100983755edc8f0d763248bda217b3454d82d5cd3be4
+
+/home/fadams/bin/kubectl-v1.13.0: OK
+* Starting DIND container: kube-master
+* Running kubeadm: init --config /etc/kubeadm.conf --ignore-preflight-errors=all
+Initializing machine ID from random generator.
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /lib/systemd/system/docker.service.
+Loaded image: mirantis/hypokube:base
+
+real	0m10.467s
+user	0m0.694s
+sys	0m1.068s
+Sending build context to Docker daemon  177.6MB
+Step 1/2 : FROM mirantis/hypokube:base
+ ---> 6c5c247039c6
+Step 2/2 : COPY hyperkube /hyperkube
+ ---> 5653335ff7df
+Successfully built 5653335ff7df
+Successfully tagged mirantis/hypokube:final
+Created symlink /etc/systemd/system/multi-user.target.wants/kubelet.service → /lib/systemd/system/kubelet.service.
+[init] Using Kubernetes version: v1.13.0
+[preflight] Running pre-flight checks
+	[WARNING FileContent--proc-sys-net-bridge-bridge-nf-call-iptables]: /proc/sys/net/bridge/bridge-nf-call-iptables does not exist
+	[WARNING Swap]: running with swap on is not supported. Please disable swap
+	[WARNING SystemVerification]: this Docker version is not on the list of validated versions: 18.09.0. Latest validated version: 18.06
+[preflight] Pulling images required for setting up a Kubernetes cluster
+[preflight] This might take a minute or two, depending on the speed of your internet connection
+[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Activating the kubelet service
+[certs] Using certificateDir folder "/etc/kubernetes/pki"
+[certs] Generating "ca" certificate and key
+[certs] Generating "apiserver" certificate and key
+[certs] apiserver serving cert is signed for DNS names [kube-master kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.96.0.1 10.192.0.2]
+[certs] Generating "apiserver-kubelet-client" certificate and key
+[certs] Generating "front-proxy-ca" certificate and key
+[certs] Generating "front-proxy-client" certificate and key
+[certs] Generating "etcd/ca" certificate and key
+[certs] Generating "etcd/peer" certificate and key
+[certs] etcd/peer serving cert is signed for DNS names [kube-master localhost] and IPs [10.192.0.2 127.0.0.1 ::1]
+[certs] Generating "apiserver-etcd-client" certificate and key
+[certs] Generating "etcd/server" certificate and key
+[certs] etcd/server serving cert is signed for DNS names [kube-master localhost] and IPs [10.192.0.2 127.0.0.1 ::1]
+[certs] Generating "etcd/healthcheck-client" certificate and key
+[certs] Generating "sa" key and public key
+[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
+[kubeconfig] Writing "admin.conf" kubeconfig file
+[kubeconfig] Writing "kubelet.conf" kubeconfig file
+[kubeconfig] Writing "controller-manager.conf" kubeconfig file
+[kubeconfig] Writing "scheduler.conf" kubeconfig file
+[control-plane] Using manifest folder "/etc/kubernetes/manifests"
+[control-plane] Creating static Pod manifest for "kube-apiserver"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-apiserver"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-controller-manager"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-scheduler"
+[control-plane] Creating static Pod manifest for "kube-controller-manager"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-apiserver"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-controller-manager"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-scheduler"
+[control-plane] Creating static Pod manifest for "kube-scheduler"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-apiserver"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-controller-manager"
+[controlplane] Adding extra host path mount "hyperkube" to "kube-scheduler"
+[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[apiclient] All control plane components are healthy after 20.503513 seconds
+[uploadconfig] storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config-1.13" in namespace kube-system with the configuration for the kubelets in the cluster
+[patchnode] Uploading the CRI Socket information "/var/run/dockershim.sock" to the Node API object "kube-master" as an annotation
+[mark-control-plane] Marking the node kube-master as control-plane by adding the label "node-role.kubernetes.io/master=''"
+[mark-control-plane] Marking the node kube-master as control-plane by adding the taints [node-role.kubernetes.io/master:NoSchedule]
+[bootstrap-token] Using token: hzn7hq.4jp14cuf44prw2rc
+[bootstrap-token] Configuring bootstrap tokens, cluster-info ConfigMap, RBAC Roles
+[bootstraptoken] configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstraptoken] configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstraptoken] configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[bootstraptoken] creating the "cluster-info" ConfigMap in the "kube-public" namespace
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+Your Kubernetes master has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+You can now join any number of machines by running the following on each node
+as root:
+
+  kubeadm join 10.192.0.2:6443 --token hzn7hq.4jp14cuf44prw2rc --discovery-token-ca-cert-hash sha256:e816eb65165db633f8cc30755cb412117a6bafde603ba0e9559feb90ce38c6de
+
+
+real	0m51.646s
+user	0m5.547s
+sys	0m0.468s
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+configmap/kube-proxy configured
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+daemonset.extensions/kube-proxy configured
+No resources found
+* Setting cluster config 
+Cluster "dind" set.
+Context "dind" created.
+Switched to context "dind".
+* Starting node container: 1
+* Starting DIND container: kube-node-1
+* Node container started: 1
+* Starting node container: 2
+* Starting DIND container: kube-node-2
+* Node container started: 2
+* Joining node: 1
+* Joining node: 2
+* Running kubeadm: join --ignore-preflight-errors=all --cri-socket=/var/run/dockershim.sock 10.192.0.2:6443 --token hzn7hq.4jp14cuf44prw2rc --discovery-token-ca-cert-hash sha256:e816eb65165db633f8cc30755cb412117a6bafde603ba0e9559feb90ce38c6de
+* Running kubeadm: join --ignore-preflight-errors=all --cri-socket=/var/run/dockershim.sock 10.192.0.2:6443 --token hzn7hq.4jp14cuf44prw2rc --discovery-token-ca-cert-hash sha256:e816eb65165db633f8cc30755cb412117a6bafde603ba0e9559feb90ce38c6de
+Initializing machine ID from random generator.
+Initializing machine ID from random generator.
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /lib/systemd/system/docker.service.
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /lib/systemd/system/docker.service.
+Loaded image: mirantis/hypokube:base
+
+real	0m10.786s
+user	0m0.533s
+sys	0m0.590s
+Loaded image: mirantis/hypokube:base
+
+real	0m12.186s
+user	0m0.455s
+sys	0m0.669s
+Sending build context to Docker daemon  177.6MB
+Step 1/2 : FROM mirantis/hypokube:base
+ ---> 6c5c247039c6
+Step 2/2 : COPY hyperkube /hyperkube
+Sending build context to Docker daemon  177.6MB
+Step 1/2 : FROM mirantis/hypokube:base
+ ---> 6c5c247039c6
+Step 2/2 : COPY hyperkube /hyperkube
+ ---> bd123969b572
+Successfully built bd123969b572
+Successfully tagged mirantis/hypokube:final
+Created symlink /etc/systemd/system/multi-user.target.wants/kubelet.service → /lib/systemd/system/kubelet.service.
+[preflight] Running pre-flight checks
+	[WARNING FileContent--proc-sys-net-bridge-bridge-nf-call-iptables]: /proc/sys/net/bridge/bridge-nf-call-iptables does not exist
+	[WARNING Swap]: running with swap on is not supported. Please disable swap
+	[WARNING SystemVerification]: this Docker version is not on the list of validated versions: 18.09.0. Latest validated version: 18.06
+ ---> 7a7e7df2bf8b
+Successfully built 7a7e7df2bf8b
+Successfully tagged mirantis/hypokube:final
+[discovery] Trying to connect to API Server "10.192.0.2:6443"
+[discovery] Created cluster-info discovery client, requesting info from "https://10.192.0.2:6443"
+[discovery] Requesting info from "https://10.192.0.2:6443" again to validate TLS against the pinned public key
+[discovery] Cluster info signature and contents are valid and TLS certificate validates against pinned roots, will use API Server "10.192.0.2:6443"
+[discovery] Successfully established connection with API Server "10.192.0.2:6443"
+[join] Reading configuration from the cluster...
+[join] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[kubelet] Downloading configuration for the kubelet from the "kubelet-config-1.13" ConfigMap in the kube-system namespace
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Activating the kubelet service
+[tlsbootstrap] Waiting for the kubelet to perform the TLS Bootstrap...
+Created symlink /etc/systemd/system/multi-user.target.wants/kubelet.service → /lib/systemd/system/kubelet.service.
+[preflight] Running pre-flight checks
+	[WARNING FileContent--proc-sys-net-bridge-bridge-nf-call-iptables]: /proc/sys/net/bridge/bridge-nf-call-iptables does not exist
+	[WARNING Swap]: running with swap on is not supported. Please disable swap
+	[WARNING SystemVerification]: this Docker version is not on the list of validated versions: 18.09.0. Latest validated version: 18.06
+[discovery] Trying to connect to API Server "10.192.0.2:6443"
+[discovery] Created cluster-info discovery client, requesting info from "https://10.192.0.2:6443"
+[discovery] Requesting info from "https://10.192.0.2:6443" again to validate TLS against the pinned public key
+[discovery] Cluster info signature and contents are valid and TLS certificate validates against pinned roots, will use API Server "10.192.0.2:6443"
+[discovery] Successfully established connection with API Server "10.192.0.2:6443"
+[join] Reading configuration from the cluster...
+[join] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[kubelet] Downloading configuration for the kubelet from the "kubelet-config-1.13" ConfigMap in the kube-system namespace
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Activating the kubelet service
+[tlsbootstrap] Waiting for the kubelet to perform the TLS Bootstrap...
+[patchnode] Uploading the CRI Socket information "/var/run/dockershim.sock" to the Node API object "kube-node-2" as an annotation
+
+This node has joined the cluster:
+* Certificate signing request was sent to apiserver and a response was received.
+* The Kubelet was informed of the new secure connection details.
+
+Run 'kubectl get nodes' on the master to see this node join the cluster.
+
+
+real	0m2.149s
+user	0m0.342s
+sys	0m0.139s
+* Node joined: 2
+[patchnode] Uploading the CRI Socket information "/var/run/dockershim.sock" to the Node API object "kube-node-1" as an annotation
+
+This node has joined the cluster:
+* Certificate signing request was sent to apiserver and a response was received.
+* The Kubelet was informed of the new secure connection details.
+
+Run 'kubectl get nodes' on the master to see this node join the cluster.
+
+
+real	0m3.172s
+user	0m0.390s
+sys	0m0.111s
+* Node joined: 1
+Creating static routes for bridge/PTP plugin
+* Deploying k8s dashboard 
+deployment.extensions/kubernetes-dashboard created
+service/kubernetes-dashboard created
+clusterrolebinding.rbac.authorization.k8s.io/add-on-cluster-admin created
+* Cluster Info 
+Network Mode: ipv4
+Cluster context: dind
+Cluster ID: 0
+Management CIDR(s): 10.192.0.0/24
+Service CIDR/mode: 10.96.0.0/12/ipv4
+Pod CIDR(s): 10.244.0.0/16
+* Taking snapshot of the cluster 
+deployment.extensions/coredns scaled
+deployment.extensions/kubernetes-dashboard scaled
+pod "kube-proxy-gtqcn" deleted
+pod "kube-proxy-nq5s7" deleted
+pod "kube-proxy-szhbq" deleted
+
+NAME                         READY   STATUS    RESTARTS   AGE
+etcd-kube-master             1/1     Running   0          60s
+kube-apiserver-kube-master   1/1     Running   0          66s
+kube-proxy-9tfl4             1/1     Running   0          80s
+kube-proxy-fsz6c             1/1     Running   0          72s
+kube-scheduler-kube-master   1/1     Running   0          54s
+tar: var/lib/kubelet/device-plugins/kubelet.sock: socket ignored
+tar: var/lib/kubelet/device-plugins/kubelet.sock: socket ignored
+tar: var/lib/kubelet/device-plugins/kubelet.sock: socket ignored
+* Waiting for kube-proxy and the nodes 
+..........[done]
+* Bringing up coredns and kubernetes-dashboard 
+deployment.extensions/coredns scaled
+deployment.extensions/kubernetes-dashboard scaled
+..............[done]
+NAME          STATUS   ROLES    AGE     VERSION
+kube-master   Ready    master   3m9s    v1.13.0
+kube-node-1   Ready    <none>   2m33s   v1.13.0
+kube-node-2   Ready    <none>   2m35s   v1.13.0
+* Access dashboard at: http://127.0.0.1:32768/api/v1/namespaces/kube-system/services/kubernetes-dashboard:/proxy
+

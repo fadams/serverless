@@ -1,0 +1,81 @@
+
+Sentiment analysis example looks interesting
+https://github.com/openfaas/faas/tree/master/sample-functions/SentimentAnalysis
+
+Based on the Python TextBlob project
+https://textblob.readthedocs.io/en/dev/
+
+
+
+TensorFlow ImageNet/Inception as an OpenFaaS function
+“Imagenet” identifies what is present in a photo.
+Forked version of the work by Magnus Erik Hvass Pedersen - it has been re-packaged as an OpenFaaS serverless function.
+
+This means you can call a HTTP endpoint with a URL to an image and get back categorizations through machine learning - fast.
+
+https://github.com/faas-and-furious/inception-function
+
+
+
+Get address from GPS coordinates
+https://github.com/faas-and-furious/faas-reverse-geocoding
+https://github.com/lucj/faas-reverse-geocoding
+
+
+Converts a video to a .gif
+https://github.com/openfaas/faas/tree/master/sample-functions/gif-maker
+
+
+https://github.com/openfaas/store
+https://github.com/openfaas/store/blob/master/store.json
+When OpenFaaS is up and running:
+faas-cli store list
+
+FUNCTION                    DESCRIPTION
+Colorization                Turn black and white photos to color ...
+Inception                   This is a forked version of the work ...
+Have I Been Pwned           The Have I Been Pwned function lets y...
+SSL/TLS cert info           Returns SSL/TLS certificate informati...
+Face Detection with Pigo    Detect faces in images using the Pigo...
+SentimentAnalysis           Python function provides a rating on ...
+Figlet                      OpenFaaS Figlet image. This repositor...
+Business Strategy Generator Generates a Business Strategy (using ...
+NodeInfo                    Get info about the machine that you'r...
+Tesseract OCR               This function brings OCR - Optical Ch...
+Dockerhub Stats             Golang function gives the count of re...
+QR Code Generator - Go      QR Code generator using Go
+Nmap Security Scanner       Tool for network discovery and securi...
+ASCII Cows                  Generate cartoons of ASCII cows
+YouTube Video Downloader    Download YouTube videos as a function
+OpenFaaS Text-to-Speech     Generate an MP3 of text using Google'...
+nslookup                    Uses nslookup to return any IP addres...
+Docker Image Manifest Query Query an image on the Docker Hub for ...
+face-detect with OpenCV     Detect faces in images. Send a URL as...
+Left-Pad                    left-pad on OpenFaaS
+mememachine                 Turn any image into a meme.
+
+
+face-detect with OpenCV
+https://github.com/alexellis/facedetect-openfaas
+https://github.com/alexellis/opencv-openfaas-template
+
+
+Apply colour to B&W images via an OpenFaaS function. 
+https://github.com/alexellis/faas-colorization
+
+
+
+
+
+Blog posts and write-ups, Repositories - Projects, Samples, and Use Cases
+
+https://github.com/openfaas/faas/blob/master/community.md
+
+
+
+What Is OpenFaaS and How Can It Drive Innovation? An Interview with Creator Alex Ellis
+
+https://www.contino.io/insights/what-is-openfaas-and-why-is-it-an-alternative-to-aws-lambda-an-interview-with-creator-alex-ellis
+
+
+
