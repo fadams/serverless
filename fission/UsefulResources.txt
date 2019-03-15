@@ -1,0 +1,36 @@
+
+Aside: Nuclio Serverless Functions. Serverless Functions for Real-Time and Data-Driven Applications.
+The fastest platform running up to 400,000 function invocations per second.
+https://nuclio.io/
+https://github.com/nuclio/nuclio
+
+Getting Started with Nuclio on Kubernetes
+https://github.com/nuclio/nuclio/blob/master/docs/setup/k8s/getting-started-k8s.md
+
+
+
+
+
+
+
+https://hackernoon.com/what-is-serverless-part-4-fission-an-open-source-serverless-framework-for-kubernetes-7f025517774a
+
+https://platform9.com/blog/the-gorilla-guide-to-serverless-on-kubernetes-chapter-4-what-is-fission/
+
+https://kubernetes.io/blog/2017/01/fission-serverless-functions-as-service-for-kubernetes/
+
+https://www.bbva.com/en/serverless-with-openshift/
+
+
+https://www.bizety.com/2017/06/05/fission-new-serverless-framework-kubernetes/
+
+https://thenewstack.io/how-fission-io-brings-serverless-to-kubernetes/
+
+
+Function Composition: What It Means, and Why You Should Care (the second of these is quite good)
+https://blog.fission.io/posts/function-composition/
+https://blog.fission.io/posts/kubecon-eu-18/
+
+
+Complete blog list from fission.io
+https://blog.fission.io/
