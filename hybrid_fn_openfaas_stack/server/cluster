@@ -1,0 +1,188 @@
+#!/bin/bash
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The number of nodes in the Kubernetes cluster.
+NUM_NODES=${NUM_NODES:-4}
+
+COMMAND="${1:-}"
+
+# Deploy kubeadm-dind-cluster
+function cluster::deploy-kubeadm-dind-cluster {
+    echo "Starting $NUM_NODES node Kubernetes cluster"
+    # Redirect startup logs to kubeadm-dind-cluster-log.txt so we can extract
+    # the dashboard URL later.
+    NUM_NODES=$NUM_NODES ./dind-cluster-v1.13.sh up 2>&1 | tee kubeadm-dind-cluster-log.txt
+
+    # Grok dashboard URL from startup logs
+    DASHBOARD_URL=$(cat kubeadm-dind-cluster-log.txt | sed -n -e 's/* Access dashboard at: //p')
+    echo "DASHBOARD_URL: $DASHBOARD_URL"
+    # Tidy up startup logs now that we've got the dashboard URL
+    rm kubeadm-dind-cluster-log.txt
+
+    # Open default browser at Kubernetes dashboard URL.
+    xdg-open $DASHBOARD_URL
+}
+
+# Deploy Helm
+function cluster::deploy-helm {
+    if [ ! -d helm ]; then
+        echo "Downloading Helm v2.13.0"
+        curl -sSL https://storage.googleapis.com/kubernetes-helm/helm-v2.13.0-linux-amd64.tar.gz -o helm.tar.gz
+        tar zxf helm.tar.gz && mv linux-amd64 helm && rm helm.tar.gz
+        ln -s $PWD/helm/helm $HOME/bin/helm
+    fi
+
+    echo "Installing Tiller into Kubernetes cluster $(kubectl config current-context)"
+    # Create RBAC permissions for Tiller
+    # See https://github.com/openfaas/faas-netes/blob/master/HELM.md
+    kubectl -n kube-system create sa tiller \
+      && kubectl create clusterrolebinding tiller \
+         --clusterrole cluster-admin \
+         --serviceaccount=kube-system:tiller
+
+    helm init --history-max 200 --skip-refresh --upgrade --service-account tiller
+
+    # Wait for Tiller to start
+    STATE="unknown"
+    while [ "$STATE" != "Running" ]; do
+         STATE=$(kubectl get pod -n kube-system | grep 'tiller-' | tail -n1 | grep -o 'Running')
+        echo "Tiller state: $STATE"
+        sleep 5
+    done
+}
+
+# Deploy OpenFaaS via Helm
+# https://github.com/openfaas/faas-netes/blob/master/chart/openfaas/README.md
+function cluster::deploy-openfaas {
+    echo "Starting OpenFaaS on Kubernetes cluster"
+
+    # Create two namespaces for OpenFaaS core services and for the functions:
+    kubectl apply -f https://raw.githubusercontent.com/openfaas/faas-netes/master/namespaces.yml
+
+    # Render the chart to a Kubernetes manifest called openfaas.yaml
+    #helm template faas-netes/chart/openfaas \
+    #--name openfaas \
+    #--namespace openfaas  \
+    #--set functionNamespace=openfaas-fn > openfaas.yaml
+
+    # Edit
+#    kubectl apply -f ./openfaas.yaml
+
+
+
+
+    # Add the OpenFaaS helm chart:
+#    helm repo add openfaas https://openfaas.github.io/faas-netes/
+
+    # Deploy OpenFaaS from the helm chart repo. N.B. note that no authentication
+    # has been applied. The link above illustrates enabling basic authentication
+    # for the gateway but let's consider authentication more when the basics
+    # are working properly.
+#    helm repo update
+    
+#    helm upgrade openfaas --install openfaas/openfaas \
+#        --namespace openfaas  \
+#        --set functionNamespace=openfaas-fn
+
+
+    # kubectl --namespace=openfaas port-forward svc/gateway 8080:8080
+
+    # kubectl --namespace=openfaas get deployments -l "release=openfaas, app=openfaas"
+    # helm delete --purge openfaas
+
+    # Creates alertmanager, faas-idler, gateway, nats, prometheus, queue-worker
+}
+
+# Deploy OpenFaaS via kubectl and YAML (plan B if helm install fails)
+function cluster::deploy-openfaas-via-yaml {
+    echo "Starting OpenFaaS on Kubernetes cluster"
+
+    kubectl apply -f https://raw.githubusercontent.com/openfaas/faas-netes/master/namespaces.yml
+    kubectl apply -f faas-netes/yaml
+    # Creates alertmanager, gateway, nats, prometheus, queue-worker
+}
+
+# Run OpenFaaS UI
+function cluster::run-openfaas-ui {
+    # Open OpenFaaS Portal in new tab
+    xdg-open http://10.192.0.2:31112
+
+    # Wait for Prometheus to start
+    STATE="unknown"
+    while [ "$STATE" != "Running" ]; do
+         STATE=$(kubectl get pod -n openfaas | grep 'prometheus-' | tail -n1 | grep -o 'Running')
+        echo "Prometheus state: $STATE"
+        sleep 5
+    done
+
+    # Open OpenFaaS Prometheus metrics UI in new tab
+    xdg-open http://10.192.0.2:31119
+}
+
+
+# Deploy Fn
+function cluster::deploy-fn {
+    # https://dzone.com/articles/serverless-with-fn-project-on-kubernetes-for-docke
+    git clone https://github.com/fnproject/fn-helm.git && cd fn-helm
+
+    helm dep build fn
+
+    helm install --name fm-release fn
+}
+
+function cluster::up {
+    cluster::deploy-kubeadm-dind-cluster
+
+    cluster::deploy-helm
+
+    #cluster::deploy-openfaas
+    cluster::deploy-openfaas-via-yaml # Plan B
+
+    cluster::run-openfaas-ui
+}
+
+
+
+case ${COMMAND} in
+  up)
+    cluster::up
+    ;;
+  down)
+    echo "Stopping cluster"
+    ./dind-cluster-v1.13.sh down
+    ;;
+  clean)
+    echo "Removing cluster containers and volumes"
+    ./dind-cluster-v1.13.sh clean
+    ;;
+  *)
+    echo "usage:" >&2
+    echo "  $0 up - startup the cluster and provision services" >&2
+#    echo "  $0 reup" >&2
+    echo "  $0 down - stop and tear down the cluster" >&2
+#    echo "  $0 init kubeadm-args..." >&2
+#    echo "  $0 join kubeadm-args..." >&2
+    # echo "  $0 bare container_name [docker_options...]"
+    echo "  $0 clean - remove cluster containers and volumes"
+#    echo "  $0 copy-image [image_name]" >&2
+#    echo "  $0 e2e [test-name-substring]" >&2
+#    echo "  $0 e2e-serial [test-name-substring]" >&2
+#    echo "  $0 dump" >&2
+#    echo "  $0 dump64" >&2
+#    echo "  $0 split-dump" >&2
+#    echo "  $0 split-dump64" >&2
+    exit 1
+    ;;
+esac
+

@@ -6,7 +6,7 @@ Download preconfigured script from releases
 https://github.com/kubernetes-sigs/kubeadm-dind-cluster/releases
 
 
-wget https://github.com/kubernetes-sigs/kubeadm-dind-cluster/releases/download/v0.1.0/dind-cluster-v1.13.sh
+wget https://github.com/kubernetes-sigs//releases/download/v0.1.0/dind-cluster-v1.13.sh
 chmod +x dind-cluster-v1.13.sh
 
 
