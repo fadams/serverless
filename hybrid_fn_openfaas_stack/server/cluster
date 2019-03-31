@@ -17,6 +17,9 @@ NUM_NODES=${NUM_NODES:-4}
 
 COMMAND="${1:-}"
 
+# Provision Kubernetes and Helm
+#-------------------------------------------------------------------------------
+
 # Deploy kubeadm-dind-cluster
 function cluster::deploy-kubeadm-dind-cluster {
     echo "Starting $NUM_NODES node Kubernetes cluster"
@@ -61,6 +64,10 @@ function cluster::deploy-helm {
         sleep 5
     done
 }
+
+
+# Provision OpenFaaS via Helm
+#-------------------------------------------------------------------------------
 
 # Deploy OpenFaaS via Helm
 # https://github.com/openfaas/faas-netes/blob/master/chart/openfaas/README.md
@@ -113,8 +120,36 @@ function cluster::deploy-openfaas-via-yaml {
     # Creates alertmanager, gateway, nats, prometheus, queue-worker
 }
 
+# Run Grafana in OpenFaaS Kubernetes namespace and expose with NodePort.
+# Instructions taken from OpnFaaS workshop lab 2.
+# https://github.com/openfaas/workshop/blob/kubernetes-preview/lab2.md
+function cluster::deploy-openfaas-grafana {
+    # This uses a prebuilt image for this project:
+    # https://github.com/stefanprodan/faas-grafana
+
+    # Run Grafana in OpenFaaS Kubernetes namespace
+    kubectl -n openfaas run \
+        --image=stefanprodan/faas-grafana:4.6.3 \
+        --port=3000 \
+        grafana
+
+    # Expose Grafana Service with a NodePort:
+    kubectl -n openfaas expose deployment grafana \
+        --type=NodePort \
+        --name=grafana
+
+}
+
 # Run OpenFaaS UI
 function cluster::run-openfaas-ui {
+    # Wait for OpenFaaS Gateway to start
+    STATE="unknown"
+    while [ "$STATE" != "Running" ]; do
+         STATE=$(kubectl get pod -n openfaas | grep 'gateway-' | tail -n1 | grep -o 'Running')
+        echo "OpenFaaS Gateway state: $STATE"
+        sleep 5
+    done
+
     # Open OpenFaaS Portal in new tab
     xdg-open http://10.192.0.2:31112
 
@@ -128,17 +163,60 @@ function cluster::run-openfaas-ui {
 
     # Open OpenFaaS Prometheus metrics UI in new tab
     xdg-open http://10.192.0.2:31119
+
+    # Wait for Grafana to start
+    STATE="unknown"
+    while [ "$STATE" != "Running" ]; do
+         STATE=$(kubectl get pod -n openfaas | grep 'grafana-' | tail -n1 | grep -o 'Running')
+        echo "Grafana state: $STATE"
+        sleep 5
+    done
+
+    GRAFANA_PORT=$(kubectl -n openfaas get svc grafana -o jsonpath="{.spec.ports[0].nodePort}")
+
+    GRAFANA_URL=http://10.192.0.2:$GRAFANA_PORT/dashboard/db/openfaas
+
+    echo "GRAFANA_URL=$GRAFANA_URL"
+
+    # Open OpenFaaS Grafana metrics UI in new tab
+    xdg-open $GRAFANA_URL 
 }
 
+# Deploy OpenFaaS Demo Functions, taken from:
+# https://github.com/openfaas/workshop/blob/kubernetes-preview/lab2.md
+# faas-cli deploy -f https://raw.githubusercontent.com/openfaas/faas/master/stack.yml
+function cluster::deploy-openfaas-demo-functions {
+    OPENFAAS_URL=http://10.192.0.2:31112 faas-cli deploy -f ./openfaas-demo-functions.yaml
+}
+
+
+# Provision Fn
+#-------------------------------------------------------------------------------
 
 # Deploy Fn
 function cluster::deploy-fn {
     # https://dzone.com/articles/serverless-with-fn-project-on-kubernetes-for-docke
-    git clone https://github.com/fnproject/fn-helm.git && cd fn-helm
+    # https://github.com/fnproject/fn-helm
+    # https://medium.com/@brianbmathews/going-serverless-on-oracle-cloud-using-the-open-source-fn-project-3c71f843b6d
 
-    helm dep build fn
+    # TODO do this via YAML?
+    kubectl create namespace fn
 
-    helm install --name fm-release fn
+    git clone https://github.com/fnproject/fn-helm.git
+
+    helm dep build fn-helm/fn
+
+    # These two calls seem to be equivalent.
+#    helm install --name fn --namespace fn fn-helm/fn
+    helm upgrade fn --install fn-helm/fn --namespace fn
+
+
+#    helm template --name fn --namespace fn fn-helm/fn > fn.yaml
+    kubectl apply -f ./fn.yaml
+
+    # To undeploy Fn from cluster.
+    # helm delete --purge fn
+    # kubectl delete namespace fn   
 }
 
 function cluster::up {
@@ -149,10 +227,15 @@ function cluster::up {
     #cluster::deploy-openfaas
     cluster::deploy-openfaas-via-yaml # Plan B
 
+    cluster::deploy-openfaas-grafana
+
     cluster::run-openfaas-ui
+
+    cluster::deploy-openfaas-demo-functions
 }
 
 
+#-------------------------------------------------------------------------------
 
 case ${COMMAND} in
   up)

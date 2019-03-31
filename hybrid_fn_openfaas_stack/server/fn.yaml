@@ -1,0 +1,601 @@
+---
+# Source: fn/charts/mysql/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fn-mysql
+  namespace: "fn"
+  labels:
+    app: fn-mysql
+    chart: "mysql-0.3.0"
+    release: "fn"
+    heritage: "Tiller"
+type: Opaque
+data:
+  
+  mysql-root-password: "Z1Y1N0NlVUtNVA=="
+  
+  
+  mysql-password:  "Ym9vbXNhdWNl"
+  
+
+---
+# Source: fn/charts/mysql/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-mysql
+  namespace: "fn"
+  labels:
+    app: fn-mysql
+    chart: "mysql-0.3.0"
+    release: "fn"
+    heritage: "Tiller"
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: mysql
+  selector:
+    app: fn-mysql
+
+---
+# Source: fn/charts/redis/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-redis
+  namespace: "fn"
+  labels:
+    app: fn-redis
+    chart: "redis-1.0.4"
+    release: "fn"
+    heritage: "Tiller"
+  annotations:
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+  selector:
+    app: fn-redis
+
+---
+# Source: fn/templates/flow-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-fn-flow
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  type: ClusterIP
+  ports:
+    - name: flow
+      port: 80
+      targetPort: 8081
+  selector:
+    app: fn-fn
+    role: flow
+
+---
+# Source: fn/templates/fn-runner-node-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-fn-runner
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  type: ClusterIP
+  ports:
+    - name: grpc
+      port: 9191
+      targetPort: 9191
+  selector:
+    app: fn-fn
+    role: runner
+
+---
+# Source: fn/templates/fn-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-fn
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 80
+    targetPort: 80
+  - name: runner-lb
+    port: 90
+    targetPort: 90
+  selector:
+    app: fn-fn
+    role: fn-service
+
+---
+# Source: fn/templates/ui-service.yaml
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-fn-ui
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  type: ClusterIP
+  ports:
+    - name: flow-ui
+      port: 3000
+      targetPort: 3000
+  selector:
+    app: fn-fn
+    role: ui
+
+---
+# Source: fn/charts/mysql/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fn-mysql
+  namespace: "fn"
+  labels:
+    app: fn-mysql
+    chart: "mysql-0.3.0"
+    release: "fn"
+    heritage: "Tiller"
+spec:
+  template:
+    metadata:
+      labels:
+        app: fn-mysql
+    spec:
+      initContainers:
+      - name: "remove-lost-found"
+        image: "busybox:1.25.0"
+        imagePullPolicy: "IfNotPresent"
+        command:  ["rm", "-fr", "/var/lib/mysql/lost+found"]
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+      containers:
+      - name: fn-mysql
+        image: "mysql:5.7.14"
+        imagePullPolicy: "IfNotPresent"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fn-mysql
+              key: mysql-root-password
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fn-mysql
+              key: mysql-password
+        - name: MYSQL_USER
+          value: "fnapp"
+        - name: MYSQL_DATABASE
+          value: "fndb"
+        ports:
+        - name: mysql
+          containerPort: 3306
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: data
+        emptyDir: {}
+---
+# Source: fn/charts/redis/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fn-redis
+  namespace: "fn"
+  labels:
+    app: fn-redis
+    chart: "redis-1.0.4"
+    release: "fn"
+    heritage: "Tiller"
+spec:
+  template:
+    metadata:
+      labels:
+        app: fn-redis
+    spec:
+      securityContext:
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: fn-redis
+        image: "bitnami/redis:4.0.2-r1"
+        imagePullPolicy: "IfNotPresent"
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        ports:
+        - name: redis
+          containerPort: 6379
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          
+        volumeMounts:
+        - name: redis-data
+          mountPath: /bitnami
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+---
+# Source: fn/templates/flow-deployment.yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-fn-flow-depl
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  replicas: 1
+  template:
+    metadata:
+       labels:
+         app: fn-fn
+         chart: fn-0.1.0
+         heritage: Tiller
+         release: fn
+         role: flow
+    spec:
+      containers:
+        - name: flow
+          image: fnproject/flow:0.1.85
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 500m
+              memory: 5Gi
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            
+          ports:
+            - containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          env:
+          - name: LOG_LEVEL
+            value: info
+          - name: LISTEN
+            value: :8081
+          - name: DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: fn-mysql
+                key: mysql-password
+          - name: DB_HOST
+            value: fn-mysql
+          - name: DB_URL
+            value: mysql://fnapp:$(DB_PASSWD)@tcp($(DB_HOST):3306)/fndb
+          - name: API_URL
+            value: http://fn-fn-api
+
+---
+# Source: fn/templates/fn-deployment.yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-fn
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  replicas: 1
+  template:
+    metadata:
+       labels:
+         app: fn-fn
+         chart: fn-0.1.0
+         heritage: Tiller
+         release: fn
+         role: fn-service
+    spec:
+      containers:
+        - name: api
+          image: fnproject/fnserver:latest
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 300m
+              memory: 2Gi
+            requests:
+              cpu: 150m
+              memory: 512Mi
+            
+          securityContext:
+            privileged: true
+          ports:
+          - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /v2/apps
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          env:
+          - name: FN_DB_PASSWD
+            valueFrom:
+              secretKeyRef:
+                name: fn-mysql
+                key: mysql-password
+          - name: FN_DB_HOST
+            value: fn-mysql
+          - name: FN_MQ_HOST
+            value: fn-redis
+          - name: FN_PORT
+            value: "80"
+          - name: FN_NODE_TYPE
+            value: "api"
+          - name: FN_PUBLIC_LB_URL
+            value: http://fn.lb.fn.internal:90
+          - name: FN_DB_URL
+            value: "mysql://fnapp:$(FN_DB_PASSWD)@tcp($(FN_DB_HOST):3306)/fndb"
+          - name: FN_LOG_LEVEL
+            value: "INFO"
+          - name: FN_MQ_URL
+            value: "redis://$(FN_MQ_HOST):6379/"
+        - name: runner-lb
+          image: fnproject/fnserver:latest
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 300m
+              memory: 2Gi
+            requests:
+              cpu: 150m
+              memory: 512Mi
+            
+          securityContext:
+            privileged: true
+          ports:
+          - containerPort: 90
+          env:
+          - name: FN_NODE_TYPE
+            value: "lb"
+          - name: FN_GRPC_PORT
+            value: "9191"
+          - name: FN_PORT
+            value: "90"
+          - name: FN_RUNNER_API_URL
+            value: http://fn-fn.fn.svc.cluster.local:80
+          - name: FN_RUNNER_ADDRESSES
+            value: fn-fn-runner.fn.svc.cluster.local:9191
+          - name: FN_LOG_LEVEL
+            value: "INFO"
+
+---
+# Source: fn/templates/fn-runner-node-deployment.yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-fn-runner
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  replicas: 3
+  template:
+    metadata:
+       labels:
+         app: fn-fn
+         chart: fn-0.1.0
+         heritage: Tiller
+         release: fn
+         role: runner
+    spec:
+      containers:
+        - name: runner
+          image: fnproject/fnserver:latest
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 500m
+              memory: 5Gi
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            
+          securityContext:
+            privileged: true
+          ports:
+          - containerPort: 9191
+          env:
+          - name: FN_NODE_TYPE
+            value: "pure-runner"
+          - name: FN_GRPC_PORT
+            value: "9191"
+          - name: FN_LOG_LEVEL
+            value: "INFO"
+
+---
+# Source: fn/templates/ui-deployment.yaml
+
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-fn-ui
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+spec:
+  replicas: 1
+  template:
+    metadata:
+       labels:
+         app: fn-fn
+         chart: fn-0.1.0
+         heritage: Tiller
+         release: fn
+         role: ui
+    spec:
+      containers:
+        - name: flow-ui
+          image: fnproject/flow:ui
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 300m
+              memory: 2Gi
+            requests:
+              cpu: 150m
+              memory: 512Mi
+            
+          ports:
+            - containerPort: 3000
+          env:
+            - name: API_URL
+              value: http://fn-fn-api
+            - name: COMPLETER_BASE_URL
+              value: http://fn-fn-flow
+
+---
+# Source: fn/templates/fn-ingress.yaml
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: fn-fn-ingress-rules
+  namespace: "fn"
+  labels:
+    app: fn-fn
+    chart: fn-0.1.0
+    heritage: Tiller
+    release: fn
+  annotations:
+      kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: fn.api.fn.internal
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: fn-fn
+          servicePort: 80
+  - host: fn.lb.fn.internal
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: fn-fn
+          servicePort: 90
+  - host: fn.ui.fn.internal
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: fn-fn-ui
+          servicePort: 3000
+  - host: fn.flow.fn.internal
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: fn-fn-flow
+          servicePort: 80
+---
+# Source: fn/charts/mysql/templates/configmap.yaml
+
+---
+# Source: fn/charts/mysql/templates/pvc.yaml
+
+
+---
+# Source: fn/charts/redis/templates/networkpolicy.yaml
+
+
+---
+# Source: fn/charts/redis/templates/pvc.yaml
+
+
+---
+# Source: fn/charts/redis/templates/secrets.yaml
+
+---
+# Source: fn/templates/cluster-issuer.yaml
+
