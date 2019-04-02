@@ -1,0 +1,44 @@
+#!/bin/bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#   http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# From
+# https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/56
+#
+# This script runs a proxy to forward each node's localhost:5000 to host's :5000
+# It is in turn based on https://hub.docker.com/r/tecnativa/tcp-proxy/
+# /sbin/ip route|awk '/default/ { print $3 }' is to get host's IP accessible from node container.
+#
+# Test with:
+# kubectl run test --image=localhost:5000/alpine:3.6 -it /bin/ash     
+#        
+# If you don't see a command prompt, try pressing enter.
+# / #
+#
+# The trick is that 127.0.0.0/8 network is in insecure registries by default.
+# No need to init cluster with DIND_INSECURE_REGISTRIES variable and to edit
+# /etc/docker/daemon.json.
+
+docker ps -a -q --filter=label=mirantis.kubeadm_dind_cluster | while read container_id; do
+    docker exec ${container_id} /bin/bash -c "docker rm -fv registry-proxy || true"
+
+    # run registry proxy: forward from localhost:5000 on each node to host:5000
+    docker exec ${container_id} /bin/bash -c \
+      "docker run --name registry-proxy -d -e LISTEN=':5000' -e TALK=\"\$(/sbin/ip route|awk '/default/ { print \$3 }'):5000\" -p 5000:5000 tecnativa/tcp-proxy"
+done
