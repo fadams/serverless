@@ -1,3 +1,3 @@
 {
-  "insecure-registries" : ["172.16.199.129:5000"]
+  "insecure-registries" : ["docker-mint.local:5000"]
 }

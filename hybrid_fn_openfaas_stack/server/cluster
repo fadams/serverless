@@ -13,7 +13,21 @@
 # limitations under the License.
 
 # The number of nodes in the Kubernetes cluster.
-NUM_NODES=${NUM_NODES:-4}
+#NUM_NODES=${NUM_NODES:-4}
+NUM_NODES=${NUM_NODES:-1}
+
+# Set up kubeadm-dind-cluster to use local registry
+# https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/119
+#
+# Note that there is an issue with insecure registries not working
+# https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/266
+# jc-sanchez created a patch for this here
+# https://github.com/jc-sanchez/kubeadm-dind-cluster/commit/7db13f425a78c252c2b6b7fcc9866320a0fc79e1
+# However that has not yet made it to the public images!
+# https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/288
+# https://github.com/kubernetes-sigs/kubeadm-dind-cluster/pull/301
+#export DIND_INSECURE_REGISTRIES="[\"docker-mint.local:5000\"]"
+
 
 COMMAND="${1:-}"
 
@@ -59,7 +73,7 @@ function cluster::deploy-helm {
     # Wait for Tiller to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
-         STATE=$(kubectl get pod -n kube-system | grep 'tiller-' | tail -n1 | grep -o 'Running')
+        STATE=$(kubectl get pod -n kube-system | grep 'tiller-' | tail -n1 | grep -o 'Running')
         echo "Tiller state: $STATE"
         sleep 5
     done
@@ -137,7 +151,6 @@ function cluster::deploy-openfaas-grafana {
     kubectl -n openfaas expose deployment grafana \
         --type=NodePort \
         --name=grafana
-
 }
 
 # Run OpenFaaS UI
@@ -145,7 +158,7 @@ function cluster::run-openfaas-ui {
     # Wait for OpenFaaS Gateway to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
-         STATE=$(kubectl get pod -n openfaas | grep 'gateway-' | tail -n1 | grep -o 'Running')
+        STATE=$(kubectl get pod -n openfaas | grep 'gateway-' | tail -n1 | grep -o 'Running')
         echo "OpenFaaS Gateway state: $STATE"
         sleep 5
     done
@@ -156,7 +169,7 @@ function cluster::run-openfaas-ui {
     # Wait for Prometheus to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
-         STATE=$(kubectl get pod -n openfaas | grep 'prometheus-' | tail -n1 | grep -o 'Running')
+        STATE=$(kubectl get pod -n openfaas | grep 'prometheus-' | tail -n1 | grep -o 'Running')
         echo "Prometheus state: $STATE"
         sleep 5
     done
@@ -167,7 +180,7 @@ function cluster::run-openfaas-ui {
     # Wait for Grafana to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
-         STATE=$(kubectl get pod -n openfaas | grep 'grafana-' | tail -n1 | grep -o 'Running')
+        STATE=$(kubectl get pod -n openfaas | grep 'grafana-' | tail -n1 | grep -o 'Running')
         echo "Grafana state: $STATE"
         sleep 5
     done
@@ -206,13 +219,17 @@ function cluster::deploy-fn {
 
     helm dep build fn-helm/fn
 
+
     # These two calls seem to be equivalent.
 #    helm install --name fn --namespace fn fn-helm/fn
-    helm upgrade fn --install fn-helm/fn --namespace fn
+#    helm upgrade fn --install fn-helm/fn --namespace fn
 
 
+    # Generate YAML from Fn Helm chart. We need to edit the YAML as the
+    # available Helm configuration doesn't support our needs.
 #    helm template --name fn --namespace fn fn-helm/fn > fn.yaml
     kubectl apply -f ./fn.yaml
+
 
     # To undeploy Fn from cluster.
     # helm delete --purge fn
