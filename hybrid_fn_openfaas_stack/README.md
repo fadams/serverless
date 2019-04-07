@@ -6,4 +6,18 @@ At this stage it is very much a basic proof-of-concept and it is unclear how man
 
 For Kubernetes the stack is using kubeadm-dind-cluster (https://github.com/kubernetes-sigs/kubeadm-dind-cluster) as this lets us easily stand up a **multi-node** Kubernetes cluster on a single host, which will be beneficial when it comes to testing out features such as auto-scaling and self-healing/chaos-behaviour.
 
-
+For Fn it's best to set the context to point to the required FN\_API\_URL and REGISTRY e.g.
+```
+fn list contexts
+CURRENT	NAME	PROVIDER	API URL			REGISTRY
+*	default	default		http://10.192.0.2:30080	docker-mint.local:5000
+```
+```
+fn use context default
+```
+```
+fn update context registry docker-mint.local:5000
+```
+```
+fn update context api-url http://10.192.0.2:30080
+```
