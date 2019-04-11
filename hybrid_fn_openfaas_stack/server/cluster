@@ -12,11 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The number of nodes in the Kubernetes cluster.
-#NUM_NODES=${NUM_NODES:-4}
-NUM_NODES=${NUM_NODES:-1}
+# Prerequisites: Requires Docker to be installed as well as the kubectl, helm,
+# OpenFaaS and Fn CLIs to be available on the user's PATH.
+# TODO check for prerequisites and install if not present?
 
-# Set up kubeadm-dind-cluster to use local registry
+# Get the cluster command to run from stdin.
+COMMAND="${1:-}"
+
+# The number of nodes in the Kubernetes cluster.
+NUM_NODES=${NUM_NODES:-4}
+
+# Set up kubeadm-dind-cluster to use local registry at $(hostname).local:5000
+# where $(hostname).local is a private address resolved by mDNS.
+# https://en.wikipedia.org/wiki/.local
 # https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/119
 #
 # Note that there is an issue with insecure registries not working
@@ -26,10 +34,16 @@ NUM_NODES=${NUM_NODES:-1}
 # However that has not yet made it to the public images!
 # https://github.com/kubernetes-sigs/kubeadm-dind-cluster/issues/288
 # https://github.com/kubernetes-sigs/kubeadm-dind-cluster/pull/301
-#export DIND_INSECURE_REGISTRIES="[\"docker-mint.local:5000\"]"
+#
+# A work-around is to append "|| true" to the line restarting Docker. e.g.
+# docker exec ${container_id} systemctl restart docker || true
+# in dind::custom-docker-opts this forces the command to exit successfully.
+export DIND_INSECURE_REGISTRIES="[\"$(hostname).local:5000\"]"
 
 
-COMMAND="${1:-}"
+
+
+
 
 # Provision Kubernetes and Helm
 #-------------------------------------------------------------------------------
@@ -84,6 +98,20 @@ function cluster::deploy-helm {
 #-------------------------------------------------------------------------------
 
 # Deploy OpenFaaS via Helm
+# This is currently commented out and the OpenFaaS YAML Kubernetes config is
+# used because *.svc.cluster.local addresses seem to cause issues. This is DNS
+# related and I *think* that the issue is because I'm using mDNS/AVAHI so that
+# hosts on my local private network can be resolved using <hostname>.local
+# addresses, but I think that the default ndots:0 in /etc/resolv.conf means that
+# *.svc.cluster.local are being looked up and failing to be resolved. Using
+# *.svc.cluster.local. (with a trailing period) specify a fully qualified name
+# which fixes the issue but tweaking kebeadm-dind-cluster DNS config may be
+# a better approach when I can figure out how to do that. Interestingly the
+# OpenFaaS YAML in faas-netes/yaml actually uses period terminated fully
+# qualified addresses whereas the Helm chart doesn't and I onle figured out
+# this issue when I rendered the Helm chart to a Kubernetes manifest and
+# compared that with the original YAML to see what was different between them.
+#
 # https://github.com/openfaas/faas-netes/blob/master/chart/openfaas/README.md
 function cluster::deploy-openfaas {
     echo "Starting OpenFaaS on Kubernetes cluster"
@@ -153,8 +181,8 @@ function cluster::deploy-openfaas-grafana {
         --name=grafana
 }
 
-# Run OpenFaaS UI
-function cluster::run-openfaas-ui {
+# Wait until the OpenFaaS services become available.
+function cluster::wait-for-openfaas-services {
     # Wait for OpenFaaS Gateway to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
@@ -162,9 +190,6 @@ function cluster::run-openfaas-ui {
         echo "OpenFaaS Gateway state: $STATE"
         sleep 5
     done
-
-    # Open OpenFaaS Portal in new tab
-    xdg-open http://10.192.0.2:31112
 
     # Wait for Prometheus to start
     STATE="unknown"
@@ -174,9 +199,6 @@ function cluster::run-openfaas-ui {
         sleep 5
     done
 
-    # Open OpenFaaS Prometheus metrics UI in new tab
-    xdg-open http://10.192.0.2:31119
-
     # Wait for Grafana to start
     STATE="unknown"
     while [ "$STATE" != "Running" ]; do
@@ -184,9 +206,20 @@ function cluster::run-openfaas-ui {
         echo "Grafana state: $STATE"
         sleep 5
     done
+}
+
+# Run OpenFaaS UI
+# N.B. must call cluster::wait-for-openfaas-services first to ensure that the
+# services are actually available.
+function cluster::run-openfaas-ui {
+    # Open OpenFaaS Portal in new tab
+    xdg-open http://10.192.0.2:31112
+
+    # Comment out for now as Grafana Dashboard is probably more user-friendly.
+    # Open OpenFaaS Prometheus metrics UI in new tab
+#    xdg-open http://10.192.0.2:31119
 
     GRAFANA_PORT=$(kubectl -n openfaas get svc grafana -o jsonpath="{.spec.ports[0].nodePort}")
-
     GRAFANA_URL=http://10.192.0.2:$GRAFANA_PORT/dashboard/db/openfaas
 
     echo "GRAFANA_URL=$GRAFANA_URL"
@@ -207,6 +240,18 @@ function cluster::deploy-openfaas-demo-functions {
 #-------------------------------------------------------------------------------
 
 # Deploy Fn
+# In an ideal world the Helm chart described in the fn-helm link below would
+# "just work" however there are a few issues that caused problems. Firstly
+# the chart only supports IngressController and LoadBalancer but I wanted
+# to use NodePort initially so I can use Fn and OpenFaaS in the same way.
+# Secondly *.svc.cluster.local addresses seem to cause issues. This is DNS
+# related and I *think* that the issue is because I'm using mDNS/AVAHI so that
+# hosts on my local private network can be resolved using <hostname>.local
+# addresses, but I think that the default ndots:0 in /etc/resolv.conf means that
+# *.svc.cluster.local are being looked up and failing to be resolved. Using
+# *.svc.cluster.local. (with a trailing period) specify a fully qualified name
+# which fixes the issue but tweaking kebeadm-dind-cluster DNS config may be
+# a better approach when I can figure out how to do that.
 function cluster::deploy-fn {
     # https://dzone.com/articles/serverless-with-fn-project-on-kubernetes-for-docke
     # https://github.com/fnproject/fn-helm
@@ -237,18 +282,22 @@ function cluster::deploy-fn {
 }
 
 function cluster::up {
+    # -------------- Infrastructure --------------
     cluster::deploy-kubeadm-dind-cluster
-
     cluster::deploy-helm
 
+    # ----------------- OpenFaaS -----------------
     #cluster::deploy-openfaas
     cluster::deploy-openfaas-via-yaml # Plan B
-
     cluster::deploy-openfaas-grafana
 
-    cluster::run-openfaas-ui
+    cluster::wait-for-openfaas-services
 
     cluster::deploy-openfaas-demo-functions
+    cluster::run-openfaas-ui
+
+    # -------------------- Fn --------------------
+    cluster::deploy-fn
 }
 
 

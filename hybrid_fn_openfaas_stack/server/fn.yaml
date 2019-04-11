@@ -503,7 +503,17 @@ spec:
             value: "9191"
           - name: FN_LOG_LEVEL
             value: "INFO"
-
+# Bind-mount /etc/docker/daemon.json from the K8s Node to the fn-runner
+# container. This means the the Docker in Docker running in fn-runner
+# also has the insecure-registries configuration. TODO is there a more
+# elegant way to achieve this?
+          volumeMounts:
+          - mountPath: /etc/docker/daemon.json
+            name: insecure-registry
+      volumes:
+      - name: insecure-registry
+        hostPath:
+          path: /etc/docker/daemon.json
 ---
 # Source: fn/templates/ui-deployment.yaml
 
