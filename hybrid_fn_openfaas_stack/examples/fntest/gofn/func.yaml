@@ -1,0 +1,9 @@
+schema_version: 20180708
+name: gofn
+version: 0.0.1
+runtime: go
+entrypoint: ./func
+triggers:
+- name: gofn
+  type: http
+  source: /gofn
