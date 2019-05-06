@@ -1,0 +1,8 @@
+schema_version: 20180708
+name: wordcount-hotwrap
+version: 0.0.1
+runtime: docker
+triggers:
+- name: wordcount-hotwrap
+  type: http
+  source: /wordcount-hotwrap
