@@ -109,3 +109,8 @@ cat test.zip | busybox unzip -p -
 ```
 fails with "unzip: lseek: Illegal seek", though apparently this works on Ubuntu 18.10 but fortunately it seems to work with alpine:latest which is what is being used in our function container here.
 
+
+Need to try -c instead of -p
+This option is  similar  to  the  -p  option  except  that  the name of each file is printed as it is extracted, the -a option is allowed, and ASCII- EBCDIC  conversion  is  automatically  performed if appropriate. This option is not listed in the unzip usage screen.
+
+
