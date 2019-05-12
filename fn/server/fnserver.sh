@@ -37,5 +37,10 @@ docker run --rm -i \
     -e FN_IOFS_DOCKER_PATH=${PWD}/iofs \
     -e FN_IOFS_PATH=/iofs \
     --entrypoint=./fnserver \
+-e FN_LOG_LEVEL=debug \
     fnproject/fnserver
+
+# For debug level logging see
+# See https://github.com/fnproject/fn/issues/1496
+# -e FN_LOG_LEVEL=debug
 
