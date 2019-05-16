@@ -61,8 +61,8 @@ The following does indeed emit the path on stderr and the items on stdout, but i
 
 See https://unix.stackexchange.com/questions/394125/print-the-content-of-each-file-in-a-tar-archive
 > -s = Modify file or archive member names according to pattern
-trailing p specifies that after a successful substitution the original path name and the new	path name should be printed to standard	error
-trailing H, R, or S characters suppress substitutions for hardlink targets, regular filenames, or symlink targets, respectively.
+> trailing p specifies that after a successful substitution the original path name and the new	path name should be printed to standard	error
+> trailing H, R, or S characters suppress substitutions for hardlink targets, regular filenames, or symlink targets, respectively.
 ```
 cat akismet.2.5.3.zip | bsdtar --to-stdout -xf- -s'/.*/ /pHS'
 ```
