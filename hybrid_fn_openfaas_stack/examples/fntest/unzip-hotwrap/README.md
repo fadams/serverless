@@ -61,7 +61,7 @@ This article https://unix.stackexchange.com/questions/211265/unzip-the-archive-w
 
 This zipfile http://downloads.wordpress.org/plugin/akismet.2.5.3.zip is fairly small but has a number of items so can be used to test a streaming unzip to several different locations.
 
-#### Instructions for debugging a hotwrap container locally
+### Instructions for debugging a hotwrap container locally
 Make a directory to be the UNIX socket filesystem
 
 mkdir iofs
@@ -87,7 +87,7 @@ Remove the iofs directory
 
 rm -rf iofs
 
-#### Notes on streaming unzip
+### Notes on streaming unzip
 Note that unzipping a piped zip is not as straightforward as might first appear - see https://stackoverflow.com/questions/7132514/bash-how-to-unzip-a-piped-zip-file-from-wget-qo/52759718#52759718
 
 > The ZIP file format includes a directory (index) at the end of the archive. This directory says where, within the archive each file is located and thus allows for quick, random access, without reading the entire archive.
@@ -109,6 +109,6 @@ cat test.zip | busybox unzip -p -
 ```
 fails with "unzip: lseek: Illegal seek", though apparently this works on Ubuntu 18.10 but fortunately it seems to work with alpine:latest which is what is being used in our function container here.
 
-#### Try bsdtar instead of unzip
+### Try bsdtar instead of unzip
 I discovered that for a large zip I got an error "zip flag 8 (streaming) is not supported" from busybox and I also couldn't find a way to easily separate the different unzipped items on the stdout stream so now looking at bsdtar.
 
