@@ -33,7 +33,7 @@
 #                    ...]}
 #
 # This script requires the packages libarchive-tools (for bsdtar), jq and curl
-# it also requires the awscli to be installed in order to use s3.
+# it also requires the aws-cli to be installed in order to use s3.
 #
 # TODO logging, error handling etc.
 #
@@ -42,14 +42,14 @@
 # Usage examples:
 # echo '{"zipfile": "test.zip"}' | ./unzip.sh
 # echo '{"zipfile": "akismet.2.5.3.zip"}' | ./unzip.sh
-# echo '{"zipfile": "s3://test-bucket/input-data/akismet.2.5.3.zip"}' | ./unzip.sh
+# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip"}' | ./unzip.sh
 # echo '{"zipfile": "http://downloads.wordpress.org/plugin/akismet.2.5.3.zip"}' | ./unzip.sh
 # echo '{"zipfile": "https://downloads.wordpress.org/plugin/akismet.2.5.3.zip"}' | ./unzip.sh
 # echo '{"zipfile": "https://archive.org/download/nycTaxiTripData2013/faredata2013.zip"}' | ./unzip.sh
 
-# echo '{"zipfile": "akismet.2.5.3.zip", "destination": "s3://test-bucket/processed-data"}' | ./unzip.sh
+# echo '{"zipfile": "akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | ./unzip.sh
 # echo '{"zipfile": "akismet.2.5.3.zip", "destination": "http://skaro.local:8080"}' | ./unzip.sh
-# echo '{"zipfile": "s3://test-bucket/input-data/akismet.2.5.3.zip", "destination": "s3://test-bucket/processed-data"}' | ./unzip.sh
+# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | ./unzip.sh
 
 
 # S3 URLs used for testing
@@ -81,6 +81,11 @@ destination=$(echo $input | jq -r '.destination')
 # objects representing the metadata for each extracted item.
 output="{\"function\": \"bsdtar-unzip\", \"parent-object\": \"$zipfile\", \"child-objects\": ["
 
+# Find the path the unzip.sh script is executing from and use that as the path
+# for the write-item.sh script. This should allow us to call unzip.sh from
+# any location without worrying about relative paths.
+BIN=$(cd $(dirname $0); echo $PWD)
+
 # Make the destination property available to the write-item.sh script.
 export destination
 
@@ -90,7 +95,7 @@ export destination
 
 if [[ $zipfile == *"s3://"* ]]; then # Stream from s3
 #    echo "Zipfile from s3"
-    children=$(aws s3 cp $zipfile - | bsdtar -cf - --format gnutar @- | tar --to-command ./write-item.sh -xf-)   
+    children=$(aws s3 cp $zipfile - | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)   
 elif [[ $zipfile == *"http://"* || $zipfile == *"https://"* ]]; then # Stream from http
 #    echo "Zipfile from http"
     # Curl's -s option is silent or quiet mode. Don't show progress meter or
@@ -98,10 +103,10 @@ elif [[ $zipfile == *"http://"* || $zipfile == *"https://"* ]]; then # Stream fr
     # reports that the requested page has moved to a different location
     # (indicated with a Location: header and a 3XX response code), this option
     # will make curl redo the request on the new place.
-    children=$(curl -s -L $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command ./write-item.sh -xf-)
+    children=$(curl -s -L $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)
 else # Stream from filesystem
 #    echo "Zipfile from filesystem"
-    children=$(cat $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command ./write-item.sh -xf-)
+    children=$(cat $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)
 fi
 
 # The metadata string from the untar process needs to have commas inserted

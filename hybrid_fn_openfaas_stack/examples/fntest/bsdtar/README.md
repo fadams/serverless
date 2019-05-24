@@ -106,21 +106,35 @@ cat faredata2013.zip | bsdtar -cf- --format gnutar @- | tar --to-command ./write
 
 This may be of interest too, but it hasn't yet been investigated https://github.com/mafintosh/tar-stream
 
+So the basic approach above gets wrapped up into two scripts `unzip.sh` and `write-item.sh`, the first of these take the ideas above and puts some code around to parse a simple JSON command format and adds support for things like streaming the zip input from AWS S3.
 
+The following Dockerfile turns all of that into a function that can be hosted on the Fn serverless framework.
 ```
 FROM alpine:latest
 
 # Install hotwrap binary
-COPY --from=fnproject/hotwrap:latest /hotwrap /hotwrap 
+COPY --from=fnproject/hotwrap:latest /hotwrap /hotwrap
 
-# unzip - list, test and extract compressed files in a ZIP archive
-# With Alpine we don't need to explicitly install anything as unzip is
-# provided by busybox. Note that the CMD needs to be using the JSON
-# array form https://docs.docker.com/engine/reference/builder/
-# as below, using the shell form can result in a syntax error for unzip.
-CMD ["/usr/bin/unzip -p -"]
+# Install the streaming unzip scripts from current directory to /usr/local/bin
+COPY unzip.sh /usr/local/bin
+COPY write-item.sh /usr/local/bin
 
-# update entrypoint to use hotwrap, this will wrap the command 
+# Install the packages needed by the bsdtar unzip scripts.
+# Note that we're installing the full tar package as busybox tar does not
+# support the --to-command option necessary for the correct functioning of
+# the unzip script. Note too that aws-cli is not yet released to a stable
+# alpine version, it is only the in edge/testing repository, so need to install
+# in a more manual way - found ideas here https://github.com/mesosphere/aws-cli
+RUN apk update && apk upgrade && \
+    apk add bash curl tar libarchive-tools jq \
+    python py-pip groff && \
+    pip install --upgrade awscli==1.14.5 s3cmd==2.0.1 python-magic && \
+    apk -v --purge del py-pip && \
+    rm -rf /var/cache/apk/*
+
+CMD ["/usr/local/bin/unzip.sh"]
+
+# Update entrypoint to use hotwrap, this will wrap the command 
 ENTRYPOINT ["/hotwrap"]
 ```
 and func.yaml
@@ -135,34 +149,65 @@ triggers:
   source: /bsdtar
 ```
 
-To create an app and deploy the function (from this directory):
+N.B. This function requires AWS CLI credentials in order to acces s3. One
+approach is to add a "config" block to the func.yaml as described in the docs
+https://github.com/fnproject/docs/blob/master/fn/develop/func-file.md, e.g.
 ```
+config:
+  AWS_ACCESS_KEY_ID: <AWS_ACCESS_KEY_ID>
+  AWS_SECRET_ACCESS_KEY: <AWS_SECRET_ACCESS_KEY>
+  AWS_DEFAULT_REGION: <AWS_DEFAULT_REGION>
+```
+That works, but one issue is how best to protect that info as it's not something
+that one necessarily wants pushed to configuration management - especially not
+to a public server! It's possible to mitigate this in part with a .gitignore,
+but a better method *might* be to use the fn CLI as described here:
+https://github.com/fnproject/docs/blob/master/fn/develop/configs.md.
+This approach makes it possible to write a script to extract the creds from
+a more private location (or even just from the local environment) and push
+the info to the app or function.
+
+To create an app and deploy the function (from this directory) and update the
+config with AWS config/creds from the environment or from the .aws directory:
+```
+# Check if AWS_ACCESS_KEY_ID is set, if not try to get the values of the
+# creds and region from the .aws credentials and config files.
+if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then 
+    if [ -d "$HOME/.aws" ]; then
+        # The cut splits on = and the sed strips surrounding whitespace
+        AWS_ACCESS_KEY_ID=$(cat $HOME/.aws/credentials | grep "aws_access_key_id" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
+        AWS_SECRET_ACCESS_KEY=$(cat $HOME/.aws/credentials | grep "aws_secret_access_key" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
+        AWS_DEFAULT_REGION=$(cat $HOME/.aws/config | grep "region" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
+    else
+        echo "Can't find aws CLI credentials in either environment or $HOME/.aws."
+    fi
+fi
+
+# Create the app and build & deploy the function
 fn create app archive
 fn --verbose deploy --app archive
+
+# Set AWS CLI creds as app config, as per
+# https://github.com/fnproject/docs/blob/master/fn/develop/configs.md
+fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
+fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
+fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
 ```
 
-Running these commands will create an app called archive and will build the function and deploy to the server. To show that this is, at its heart, just based on a container that reads stdin and writes to stdout we can invoke the container directly as follows:
-```
-cat test.zip | docker run --rm -i --entrypoint=/usr/bin/unzip docker-mint.local:5000/bsdtar:0.0.2 -p -
-```
+Running these commands will create an app called archive and will build the function and deploy to the server then set the AWS CLI creds.
+
 To invoke on the Fn server:
 ```
-cat test.zip | fn invoke archive bsdtar
+echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | fn invoke archive bsdtar
 ```
 or via Curl (to Fn in Kubernetes):
 ```
-curl --header "Content-Type: application/octet-stream" --data-binary @test.zip http://10.192.0.2:30090/t/archive/bsdtar
+curl -H "Content-Type: application/json" -d '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' http://10.192.0.2:30090/t/archive/bsdtar
 ```
 or via Curl (to Fn running standalone):
 ```
-curl --header "Content-Type: application/octet-stream" --data-binary @test.zip http://$(hostname -I | awk '{print $1}'):8080/t/archive/bsdtar
+curl -H "Content-Type: application/json" -d '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' http://$(hostname -I | awk '{print $1}'):8080/t/archive/bsdtar
 ```
-Note the @ to specify test.zip is a filename as using application/octet-stream rather than the default application/x-www-form-urlencoded (see https://curl.haxx.se/docs/manpage.html)
-
-
-This article https://unix.stackexchange.com/questions/211265/unzip-the-archive-with-more-than-one-entry mentions an 8GB public test archive https://archive.org/download/nycTaxiTripData2013/faredata2013.zip this is still smaller than I want to use, but it's a start.
-
-This http://downloads.wordpress.org/plugin/akismet.2.5.3.zip is fairly small but has a number of items so can be used to test a streaming unzip to several different locations.
 
 ### Instructions for debugging a hotwrap container locally
 Make a directory to be the UNIX socket filesystem
@@ -189,4 +234,19 @@ docker kill function
 Remove the iofs directory
 
 rm -rf iofs
+
+### Using AMQP as an alternative approach to serverless
+Taking the idea of hotwrap as a container ENTRYPOINT, as an alternative to a serverless framework it is possible to provide an analogous AMQP wrapper.
+
+The Dockerfile `Dockerfile-rabbitmq` creates a container image for the bsdtar-unzip that includes "amqpwrap" as an analogous concept to hotwrap, this basically listens on a specified queue then invokes CMD when a message is received, the `unzip.sh` and `write-item.sh` are exactly the same as the serverless implementation as the primary contract is sending data via stdin/stdout.
+
+The script `docker-unzip-rabbitmq.sh` stands up the service, this is mostly just a docker run command that passes a bunch of required environment variables to the container. N.B. it is all currently pretty "sunny day", so if an AMQP broker isn't running or the relevant queues aren't present it will simply fail rather that attempt to reconnect etc.
+
+The script `rabbitmq-broker.sh` stands up a containerised broker using the rabbitmq:3-management image from DockerHub, it listens for AMQP 0.9.1 connections on port 5672 and management connections on port 15672 and the UI can be connected to from a browser pointing to localhost:15672. When the broker is up and running the service requires the queue `bsdtar-unzip` as the main queue that requests are sent down and `bsdtar-unzip-response` as the response queue.
+
+Note that the request/response mechanism is currently pretty primitive and needs some thinking about and in particular there almost certainly needs to be a correlation_id passed between the request and response messages so message invokers can associate command requests with their subsequent responses on an asynchronous system.
+
+Still not convinced by RabbitMQ, though to be fair the UI is quite nice. I'd like to compare performancew with things like Qpid (and maybe ActiveMQ) and also look as AMQP 1.0, as that provides much better interoperability between vendors. Indeed it feels worth looking at "cloud native" messaging such as NATS too, as that might be easier to wrap in a way that looks to clients like AWS SQS.
+
+Still also somewhat convinced that making use of one or more off the shelf serverless frameworks is likely to be a better bet than trying to roll our own. If we **do** roll our own we definitely should make use of the sort of patterns employed by serverless frameworks such as the main function contract being over stdin/stdout as this is the way most likely to ensure that the core microservice business logic can be built in a polyglot, container-native way.
 

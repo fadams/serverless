@@ -1,0 +1,42 @@
+# Using debian:stretch-slim instead of alpine. It is a simpler Dockerfile, but
+# the image is a little larger. Using Debian makes it a bit easier to add things
+# like RabbitMQ support with the amqp-tools package, which doesn't seem to
+# be available in the alpine packages. It may be worth looking at getting this
+# working in alpine at some point, but for now just use Debian.
+# https://stackoverflow.com/questions/4545660/rabbitmq-creating-queues-and-bindings-from-a-command-line
+
+FROM debian:stretch-slim
+
+# Install amqpwrap scripts
+COPY amqpwrap.sh /usr/local/bin
+COPY amqpwrapinvoker.sh /usr/local/bin
+
+# Install the streaming unzip scripts from current directory to /usr/local/bin
+COPY unzip.sh /usr/local/bin
+COPY write-item.sh /usr/local/bin
+
+# Install the packages needed by the bsdtar unzip scripts.
+# Note that we're installing the full tar package as busybox tar does not
+# support the --to-command option necessary for the correct functioning of
+# the unzip script. We also add awscli and amqp-tools, the latter of which
+# provides CLI tools to publish and consume AMQP 0.9.1 messages to RabbitMQ.
+# See https://packages.debian.org/stable/net/amqp-tools
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+    curl tar libarchive-tools jq awscli amqp-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+CMD ["/usr/local/bin/unzip.sh"]
+
+# Update entrypoint to use amqpwrap, this will wrap the command 
+ENTRYPOINT ["/usr/local/bin/amqpwrap.sh"]
+
+#-------------------------------------------------------------------------------
+# Build the image
+# docker build -t bsdtar-unzip-rabbitmq -f Dockerfile-rabbitmq .
+#
+# This Dockerfile builds a standalone unzip image that connects to a RabbitMQ
+# broker over AMQP 0.9.1 listening for invocation messages (which are in the
+# JSON format described in unzip.sh). The docker-unzip-rabbitmq.sh executable is
+# the best way to run this as it requires AWS key environment variables passed
+# to the container plus a fair amount of information to connect the RabbitMQ.

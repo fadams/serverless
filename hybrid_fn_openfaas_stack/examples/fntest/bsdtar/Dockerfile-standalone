@@ -1,8 +1,5 @@
 FROM alpine:latest
 
-# Install hotwrap binary
-COPY --from=fnproject/hotwrap:latest /hotwrap /hotwrap
-
 # Install the streaming unzip scripts from current directory to /usr/local/bin
 COPY unzip.sh /usr/local/bin
 COPY write-item.sh /usr/local/bin
@@ -22,14 +19,11 @@ RUN apk update && apk upgrade && \
 
 CMD ["/usr/local/bin/unzip.sh"]
 
-# Update entrypoint to use hotwrap, this will wrap the command 
-ENTRYPOINT ["/hotwrap"]
-
 #-------------------------------------------------------------------------------
-# This Dockerfile is intended to be used by the Fn deploy mechanism e.g. 
-# fn create app archive
-# fn --verbose deploy --app archive
-# will create an app called archive on the Fn server and build and deploy
-# the function defined by this Dockerfile and func.yaml
-# The Dockerfile-standalone Dockerfile is largely the same but sans hotwrap
-# The docker-unzip.sh can be used to launch the standalone container.
+# Build the image
+# docker build -t bsdtar-unzip -f Dockerfile-standalone .
+#
+# This Dockerfile builds an unzip image standalone without the hotwrap
+# entrypoint so the entrypoint becomes the unzip executable itself. The
+# docker-unzip.sh executable is the best way to run this as it requires
+# AWS key environment variables passed to the container.
