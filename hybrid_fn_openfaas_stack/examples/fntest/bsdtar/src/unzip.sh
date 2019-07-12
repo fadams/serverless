@@ -40,16 +40,16 @@
 ################################################################################
 
 # Usage examples:
-# echo '{"zipfile": "test.zip"}' | ./unzip.sh
-# echo '{"zipfile": "akismet.2.5.3.zip"}' | ./unzip.sh
-# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip"}' | ./unzip.sh
+# echo '{"zipfile": "test/resources/test.zip"}' | src/unzip.sh
+# echo '{"zipfile": "test/resources/akismet.2.5.3.zip"}' | src/unzip.sh
+# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip"}' | src/unzip.sh
 # echo '{"zipfile": "http://downloads.wordpress.org/plugin/akismet.2.5.3.zip"}' | ./unzip.sh
-# echo '{"zipfile": "https://downloads.wordpress.org/plugin/akismet.2.5.3.zip"}' | ./unzip.sh
-# echo '{"zipfile": "https://archive.org/download/nycTaxiTripData2013/faredata2013.zip"}' | ./unzip.sh
+# echo '{"zipfile": "https://downloads.wordpress.org/plugin/akismet.2.5.3.zip"}' | src/unzip.sh
+# echo '{"zipfile": "https://archive.org/download/nycTaxiTripData2013/faredata2013.zip"}' | src/unzip.sh
 
-# echo '{"zipfile": "akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | ./unzip.sh
-# echo '{"zipfile": "akismet.2.5.3.zip", "destination": "http://skaro.local:8080"}' | ./unzip.sh
-# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | ./unzip.sh
+# echo '{"zipfile": "test/resources/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | src/unzip.sh
+# echo '{"zipfile": "test/resources/akismet.2.5.3.zip", "destination": "http://skaro.local:8080"}' | src/unzip.sh
+# echo '{"zipfile": "s3://multimedia-dev/CFX/input-data/akismet.2.5.3.zip", "destination": "s3://multimedia-dev/CFX/processed-data"}' | src/unzip.sh
 
 
 # S3 URLs used for testing
@@ -69,13 +69,23 @@ input=$(cat)
 zipfile=$(echo $input | jq -r '.zipfile')
 destination=$(echo $input | jq -r '.destination')
 
+
+# Assume id is the last part of the zipfile
+item_id=${zipfile##*/}
+
+function log() {
+    if [[ $1 != "DEBUG" || ($1 == "DEBUG" && ! -z ${DEBUG+x}) ]]; then
+        >&2 echo "[$(date -Iseconds)] $1 - ${item_id} : $2"
+    fi
+}
+
+# Create a log prefix for our logging standards
+log INFO "Started processing item"
+
 # If destination property is null set it to $PWD for current directory
 [[ $destination == null ]] && destination=$PWD || destination=$destination
 
-# TODO use these in debug logs
-#echo $input
-#echo $zipfile
-#echo $destination
+log DEBUG "Function input: $input"
 
 # Initialise the JSON output, note that we'll need to append this with the child
 # objects representing the metadata for each extracted item.
@@ -86,28 +96,41 @@ output="{\"function\": \"bsdtar-unzip\", \"parent-object\": \"$zipfile\", \"chil
 # any location without worrying about relative paths.
 BIN=$(cd $(dirname $0); echo $PWD)
 
-# Make the destination property available to the write-item.sh script.
-export destination
+# Make destination and item_id properties available to the write-item.sh script.
+export destination item_id
 
 # Pipe the zipfile to bsdtar in order to convert from zip to gnu tar format
 # then pipe to gnu tar so we can process the tar, which will call write-item.sh
 # for every item in the tar, passing the data to that script's stdin.
-
+# Redirect stderr to a temporary file so we can capture it for error logging.
+STDERR_CAPTURE=$(mktemp) # Temporary file used to capture stderr
 if [[ $zipfile == *"s3://"* ]]; then # Stream from s3
-#    echo "Zipfile from s3"
-    children=$(aws s3 cp $zipfile - | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)   
+    log DEBUG "Reading $zipfile from aws s3"
+    children=$((aws s3 cp $zipfile - | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-) 2> "$STDERR_CAPTURE")
 elif [[ $zipfile == *"http://"* || $zipfile == *"https://"* ]]; then # Stream from http
-#    echo "Zipfile from http"
+    log DEBUG "Reading $zipfile from http"
     # Curl's -s option is silent or quiet mode. Don't show progress meter or
     # error messages so makes Curl mute. The -L means location so if the server
     # reports that the requested page has moved to a different location
     # (indicated with a Location: header and a 3XX response code), this option
     # will make curl redo the request on the new place.
-    children=$(curl -s -L $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)
+    children=$((curl -s -L $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-) 2> "$STDERR_CAPTURE")
 else # Stream from filesystem
-#    echo "Zipfile from filesystem"
-    children=$(cat $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-)
+    log DEBUG "Reading $zipfile from local filesystem"
+    children=$((cat $zipfile | bsdtar -cf - --format gnutar @- | tar --to-command $BIN/write-item.sh -xf-) 2> "$STDERR_CAPTURE")
 fi
+
+stderr=$(cat "$STDERR_CAPTURE")
+if [[ $stderr != "" ]]; then
+    if [[ $stderr == [2* ]]; then
+        # Echo Log messages from write-item.sh (these will start with "[2")
+        >&2 echo "$stderr"
+    else
+        # Log error from command in this script
+        log ERROR "$stderr"
+    fi
+fi
+rm "$STDERR_CAPTURE"
 
 # The metadata string from the untar process needs to have commas inserted
 # between each JSON object in the array.
@@ -115,5 +138,9 @@ children=${children//"}{"/"}, {"}
 
 # Finish up the JSON output and write to stdout.
 output="$output$children]}"
-echo $output
+echo "$output"
+
+log DEBUG "Function output: $output"
+
+log INFO "Finished processing item"
 

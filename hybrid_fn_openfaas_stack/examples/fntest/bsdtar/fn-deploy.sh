@@ -26,7 +26,8 @@ fn --verbose deploy --app archive
 
 # Set AWS CLI creds as app config, as per
 # https://github.com/fnproject/docs/blob/master/fn/develop/configs.md
-fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
-fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
-fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
-
+if [ ! -z ${AWS_ACCESS_KEY_ID+x} ]; then 
+    fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
+    fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
+    fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
+fi

@@ -9,17 +9,17 @@ Initial experiments with streaming unzip used busybox unzip, but it was discover
 
 **list contents using busybox unzip**
 ```
-cat akismet.2.5.3.zip | busybox unzip -l -
+cat test/resources/akismet.2.5.3.zip | busybox unzip -l -
 ```
 
 **extract to stdout using busybox unzip**
 ```
-cat akismet.2.5.3.zip | busybox unzip -p -
+cat test/resources/akismet.2.5.3.zip | busybox unzip -p -
 ```
 
 **Extract specific file (obtained from -l option) to stdout**
 ```
-cat akismet.2.5.3.zip | busybox unzip -p - akismet/readme.txt
+cat test/resources/akismet.2.5.3.zip | busybox unzip -p - akismet/readme.txt
 ```
 All work fine, however list contents of 8GB archive - fails with "zip flag 8 (streaming) is not supported".
 ```
@@ -33,7 +33,7 @@ Note that in x mode (extract), all POSIX-compliant versions of tar require -f to
 
 **list contents**
 ```
-cat akismet.2.5.3.zip | bsdtar -tf-
+cat test/resources/akismet.2.5.3.zip | bsdtar -tf-
 ```
 ```
 cat faredata2013.zip | bsdtar -tf-
@@ -44,7 +44,7 @@ curl -s -L https://archive.org/download/nycTaxiTripData2013/faredata2013.zip | b
 
 **Extract to stdout**
 ```
-cat akismet.2.5.3.zip | bsdtar --to-stdout -xf-
+cat test/resources/akismet.2.5.3.zip | bsdtar --to-stdout -xf-
 ```
 ```
 cat faredata2013.zip | bsdtar --to-stdout -xf-
@@ -66,7 +66,7 @@ See https://unix.stackexchange.com/questions/394125/print-the-content-of-each-fi
 
 > trailing H, R, or S characters suppress substitutions for hardlink targets, regular filenames, or symlink targets, respectively.
 ```
-cat akismet.2.5.3.zip | bsdtar --to-stdout -xf- -s'/.*/ /pHS'
+cat test/resources/akismet.2.5.3.zip | bsdtar --to-stdout -xf- -s'/.*/ /pHS'
 ```
 ```
 cat faredata2013.zip | bsdtar --to-stdout -xf- -s'/.*/ /pHS'
@@ -85,15 +85,15 @@ Basic instructions are in the bsdtar man page: https://www.freebsd.org/cgi/man.c
 
 Convert the zip to a gnutar file just to check the resulting tar archive looks OK
 ```
-cat akismet.2.5.3.zip | bsdtar -czf- --format gnutar @- > temp.tar
+cat test/resources/akismet.2.5.3.zip | bsdtar -czf- --format gnutar @- > temp.tar
 ```
 
 Now do a streamed convert of zip to gnutar using bsdtar/libarchive so we can then use tar's --to-command option to write each item to a separate file.
 ```
-cat test.zip | bsdtar -cf - --format gnutar @- | tar --to-command ./write-item.sh -xf-
+cat test/resources/test.zip | bsdtar -cf - --format gnutar @- | tar --to-command ./write-item.sh -xf-
 ```
 ```
-cat akismet.2.5.3.zip | bsdtar -cf- --format gnutar @- | tar --to-command ./write-item.sh -xf-
+cat test/resources/akismet.2.5.3.zip | bsdtar -cf- --format gnutar @- | tar --to-command ./write-item.sh -xf-
 ```
 ```
 cat awscli-bundle.zip | bsdtar -cf- --format gnutar @- | tar --to-command ./write-item.sh -xf-
@@ -115,9 +115,9 @@ FROM alpine:latest
 # Install hotwrap binary
 COPY --from=fnproject/hotwrap:latest /hotwrap /hotwrap
 
-# Install the streaming unzip scripts from current directory to /usr/local/bin
-COPY unzip.sh /usr/local/bin
-COPY write-item.sh /usr/local/bin
+# Install the streaming unzip scripts from src directory to /usr/local/bin
+COPY src/unzip.sh /usr/local/bin
+COPY src/write-item.sh /usr/local/bin
 
 # Install the packages needed by the bsdtar unzip scripts.
 # Note that we're installing the full tar package as busybox tar does not
@@ -189,9 +189,11 @@ fn --verbose deploy --app archive
 
 # Set AWS CLI creds as app config, as per
 # https://github.com/fnproject/docs/blob/master/fn/develop/configs.md
-fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
-fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
-fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
+if [ ! -z ${AWS_ACCESS_KEY_ID+x} ]; then 
+    fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
+    fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
+    fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
+fi
 ```
 
 Running these commands will create an app called archive and will build the function and deploy to the server then set the AWS CLI creds.
@@ -240,13 +242,13 @@ Taking the idea of hotwrap as a container ENTRYPOINT, as an alternative to a ser
 
 The Dockerfile `Dockerfile-rabbitmq` creates a container image for the bsdtar-unzip that includes "amqpwrap" as an analogous concept to hotwrap, this basically listens on a specified queue then invokes CMD when a message is received, the `unzip.sh` and `write-item.sh` are exactly the same as the serverless implementation as the primary contract is sending data via stdin/stdout.
 
-The script `docker-unzip-rabbitmq.sh` stands up the service, this is mostly just a docker run command that passes a bunch of required environment variables to the container. N.B. it is all currently pretty "sunny day", so if an AMQP broker isn't running or the relevant queues aren't present it will simply fail rather that attempt to reconnect etc.
+The script `rpcmessage-unzip.sh` stands up the service, this is mostly just a docker run command that passes a bunch of required environment variables to the container. N.B. it is all currently pretty "sunny day", so if an AMQP broker isn't running or the relevant queues aren't present it will simply fail rather that attempt to reconnect etc.
 
-The script `rabbitmq-broker.sh` stands up a containerised broker using the rabbitmq:3-management image from DockerHub, it listens for AMQP 0.9.1 connections on port 5672 and management connections on port 15672 and the UI can be connected to from a browser pointing to localhost:15672. When the broker is up and running the service requires the queue `bsdtar-unzip` as the main queue that requests are sent down and `bsdtar-unzip-response` as the response queue.
+The script `test/rabbitmq-broker.sh` stands up a containerised broker using the rabbitmq:3-management image from DockerHub, it listens for AMQP 0.9.1 connections on port 5672 and management connections on port 15672 and the UI can be connected to from a browser pointing to localhost:15672. When the broker is up and running the service requires the queue `bsdtar-unzip` as the main queue that requests are sent down and `bsdtar-unzip-response` as the response queue.
 
 Note that the request/response mechanism is currently pretty primitive and needs some thinking about and in particular there almost certainly needs to be a correlation_id passed between the request and response messages so message invokers can associate command requests with their subsequent responses on an asynchronous system.
 
-Still not convinced by RabbitMQ, though to be fair the UI is quite nice. I'd like to compare performancew with things like Qpid (and maybe ActiveMQ) and also look as AMQP 1.0, as that provides much better interoperability between vendors. Indeed it feels worth looking at "cloud native" messaging such as NATS too, as that might be easier to wrap in a way that looks to clients like AWS SQS.
+Still not convinced by RabbitMQ, though to be fair the UI is quite nice. I'd like to compare performance with things like Qpid (and maybe ActiveMQ) and also look as AMQP 1.0, as that provides much better interoperability between vendors. Indeed it feels worth looking at "cloud native" messaging such as NATS too, as that might be easier to wrap in a way that looks to clients like AWS SQS.
 
 Still also somewhat convinced that making use of one or more off the shelf serverless frameworks is likely to be a better bet than trying to roll our own. If we **do** roll our own we definitely should make use of the sort of patterns employed by serverless frameworks such as the main function contract being over stdin/stdout as this is the way most likely to ensure that the core microservice business logic can be built in a polyglot, container-native way.
 

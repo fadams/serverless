@@ -1,8 +1,8 @@
 FROM alpine:latest
 
-# Install the streaming unzip scripts from current directory to /usr/local/bin
-COPY unzip.sh /usr/local/bin
-COPY write-item.sh /usr/local/bin
+# Install the streaming unzip scripts from src directory to /usr/local/bin
+COPY src/unzip.sh /usr/local/bin
+COPY src/write-item.sh /usr/local/bin
 
 # Install the packages needed by the bsdtar unzip scripts.
 # Note that we're installing the full tar package as busybox tar does not
@@ -25,5 +25,5 @@ CMD ["/usr/local/bin/unzip.sh"]
 #
 # This Dockerfile builds an unzip image standalone without the hotwrap
 # entrypoint so the entrypoint becomes the unzip executable itself. The
-# docker-unzip.sh executable is the best way to run this as it requires
+# standalone-unzip.sh executable is the best way to run this as it requires
 # AWS key environment variables passed to the container.

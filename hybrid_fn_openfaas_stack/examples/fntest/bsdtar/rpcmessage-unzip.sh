@@ -33,5 +33,5 @@ docker run --rm -it \
     -e AMQP_URL="amqp://$(hostname -I | awk '{print $1}'):5672" \
     -e QUEUE_NAME="bsdtar-unzip" \
     -e RESPONSE_QUEUE_NAME="bsdtar-unzip-response" \
-    bsdtar-unzip-rabbitmq
+    bsdtar-unzip-rpcmessage
 
