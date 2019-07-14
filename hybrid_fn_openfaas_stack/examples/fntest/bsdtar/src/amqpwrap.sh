@@ -46,5 +46,5 @@ CMD=$@
 # $CMD as a parameter and the message body is sent to its stdin. The
 # amqpwrapinvoker.sh allows $CMD's stdout to be captured and published to
 # $RESPONSE_QUEUE_NAME.
-amqp-consume -u $AMQP_URL -q $QUEUE_NAME /usr/local/bin/amqpwrapinvoker.sh $CMD
+amqp-consume -u $AMQP_URL -q $QUEUE_NAME -d -p 100 /usr/local/bin/amqpwrapinvoker.sh $CMD
 
