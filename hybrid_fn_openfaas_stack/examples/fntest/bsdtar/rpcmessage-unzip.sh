@@ -25,6 +25,7 @@ if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then
     #echo "AWS_DEFAULT_REGION is set to '$AWS_DEFAULT_REGION'"
 fi
 
+# The response queue is obtained from the message reply_to
 docker run --rm -it \
     -u $(id -u):$(id -g) \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
@@ -32,6 +33,5 @@ docker run --rm -it \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
     -e AMQP_URL="amqp://$(hostname -I | awk '{print $1}'):5672" \
     -e QUEUE_NAME="bsdtar-unzip" \
-    -e RESPONSE_QUEUE_NAME="bsdtar-unzip-response" \
     bsdtar-unzip-rpcmessage
 

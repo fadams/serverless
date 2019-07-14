@@ -1,11 +1,51 @@
-# Using debian:stretch-slim instead of alpine. It is a simpler Dockerfile, but
-# the image is a little larger. Using Debian makes it a bit easier to add things
-# like RabbitMQ support with the amqp-tools package, which doesn't seem to
-# be available in the alpine packages. It may be worth looking at getting this
-# working in alpine at some point, but for now just use Debian.
+# This Dockerfile builds a standalone unzip image that connects to a RabbitMQ
+# broker over AMQP 0.9.1 listening for invocation messages (which are in the
+# JSON format described in unzip.sh). The rpcmessage-unzip.sh executable is
+# the best way to run this as it requires AWS key environment variables passed
+# to the container plus a fair amount of information to connect the RabbitMQ.
+#
+# Using debian:stretch-slim instead of alpine.
+# Using Debian makes it a bit easier to add things like RabbitMQ support.
 # https://stackoverflow.com/questions/4545660/rabbitmq-creating-queues-and-bindings-from-a-command-line
 
+#-------------------------------------------------------------------------------
+
+# Stage 1:
+# Build amqp-tools. It is necessary to build rather than just install the
+# Debian amqp-tools package as we need to patch it because out-of-the-box the
+# amqp-consume and amqp-publish applications don't support the reply_to and
+# correlation_id properties which we need in order to correctly handle RPC.
+FROM debian:stretch-slim AS builder
+LABEL stage=intermediate
+
+COPY src/common.c /usr/local/src/
+COPY src/publish.c /usr/local/src/
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+    ca-certificates curl cmake make gcc gcc-multilib libpopt-dev libssl-dev && \
+    curl -sSL https://deb.debian.org/debian/pool/main/libr/librabbitmq/librabbitmq_0.8.0.orig.tar.gz -o /usr/local/src/librabbitmq_0.8.0.orig.tar.gz && \
+    cd /usr/local/src/ && tar xvfp librabbitmq_0.8.0.orig.tar.gz && \
+    # Replace common.c and publish.c with patched versions
+    mv /usr/local/src/common.c /usr/local/src/rabbitmq-c-0.8.0/tools/common.c && \
+    mv /usr/local/src/publish.c /usr/local/src/rabbitmq-c-0.8.0/tools/publish.c && \
+    cd rabbitmq-c-0.8.0 && rm ../librabbitmq_0.8.0.orig.tar.gz && \
+    mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr .. && \
+    cmake --build . --target install && cd && \
+    #rm -rf /usr/local/src/rabbitmq-c-0.8.0 && \
+    #apt-get clean && apt-get purge -y \
+    #make make gcc gcc-multilib && \
+    rm -rf /var/lib/apt/lists/*
+
+#-------------------------------------------------------------------------------
+
+# Stage 2:
 FROM debian:stretch-slim
+
+COPY --from=builder /usr/lib/x86_64-linux-gnu/pkgconfig/librabbitmq.pc /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/librabbitmq* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/include/amqp* /usr/include/
+COPY --from=builder /usr/bin/amqp* /usr/bin/
 
 # Install amqpwrap scripts
 COPY src/amqpwrap.sh /usr/local/bin
@@ -18,12 +58,13 @@ COPY src/write-item.sh /usr/local/bin
 # Install the packages needed by the bsdtar unzip scripts.
 # Note that we're installing the full tar package as busybox tar does not
 # support the --to-command option necessary for the correct functioning of
-# the unzip script. We also add awscli and amqp-tools, the latter of which
-# provides CLI tools to publish and consume AMQP 0.9.1 messages to RabbitMQ.
+# the unzip script. We also add awscli the AWS command line tools.
+# We copy the amqp-tools and libraries from the builder stage so we can
+# publish and consume AMQP 0.9.1 messages to RabbitMQ.
 # See https://packages.debian.org/stable/net/amqp-tools
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
-    curl tar libarchive-tools jq awscli amqp-tools && \
+    curl tar libarchive-tools jq awscli libpopt0 libssl1.1 && \
     rm -rf /var/lib/apt/lists/*
 
 CMD ["/usr/local/bin/unzip.sh"]
@@ -35,8 +76,7 @@ ENTRYPOINT ["/usr/local/bin/amqpwrap.sh"]
 # Build the image
 # docker build -t bsdtar-unzip-rpcmessage -f Dockerfile-rpcmessage .
 #
-# This Dockerfile builds a standalone unzip image that connects to a RabbitMQ
-# broker over AMQP 0.9.1 listening for invocation messages (which are in the
-# JSON format described in unzip.sh). The rpcmessage-unzip.sh executable is
-# the best way to run this as it requires AWS key environment variables passed
-# to the container plus a fair amount of information to connect the RabbitMQ.
+# Remove <none> build images to tidy up filesystem
+# docker image prune --filter label=stage=intermediate
+#
+
