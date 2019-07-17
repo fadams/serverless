@@ -15,6 +15,7 @@ if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then
         # The cut splits on = and the sed strips surrounding whitespace
         AWS_ACCESS_KEY_ID=$(cat $HOME/.aws/credentials | grep "aws_access_key_id" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
         AWS_SECRET_ACCESS_KEY=$(cat $HOME/.aws/credentials | grep "aws_secret_access_key" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
+        AWS_SESSION_TOKEN=$(cat $HOME/.aws/credentials | grep "aws_session_token" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
         AWS_DEFAULT_REGION=$(cat $HOME/.aws/config | grep "region" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
     else
         echo "Can't find aws CLI credentials in either environment or $HOME/.aws."
@@ -30,6 +31,7 @@ docker run --rm -it \
     -u $(id -u):$(id -g) \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+    -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
     -e AMQP_URL="amqp://$(hostname -I | awk '{print $1}'):5672" \
     -e QUEUE_NAME="bsdtar-unzip" \

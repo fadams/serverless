@@ -156,6 +156,7 @@ https://github.com/fnproject/docs/blob/master/fn/develop/func-file.md, e.g.
 config:
   AWS_ACCESS_KEY_ID: <AWS_ACCESS_KEY_ID>
   AWS_SECRET_ACCESS_KEY: <AWS_SECRET_ACCESS_KEY>
+  AWS_SESSION_TOKEN: <AWS_SESSION_TOKEN>
   AWS_DEFAULT_REGION: <AWS_DEFAULT_REGION>
 ```
 That works, but one issue is how best to protect that info as it's not something
@@ -177,6 +178,7 @@ if [ -z ${AWS_ACCESS_KEY_ID+x} ]; then
         # The cut splits on = and the sed strips surrounding whitespace
         AWS_ACCESS_KEY_ID=$(cat $HOME/.aws/credentials | grep "aws_access_key_id" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
         AWS_SECRET_ACCESS_KEY=$(cat $HOME/.aws/credentials | grep "aws_secret_access_key" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
+        AWS_SESSION_TOKEN=$(cat $HOME/.aws/credentials | grep "aws_session_token" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
         AWS_DEFAULT_REGION=$(cat $HOME/.aws/config | grep "region" | cut -d'=' -f2 | sed -e 's/^[ \t]*//')
     else
         echo "Can't find aws CLI credentials in either environment or $HOME/.aws."
@@ -192,6 +194,7 @@ fn --verbose deploy --app archive
 if [ ! -z ${AWS_ACCESS_KEY_ID+x} ]; then 
     fn config app archive AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
     fn config app archive AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
+    fn config app archive AWS_SESSION_TOKEN ${AWS_SESSION_TOKEN}
     fn config app archive AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION}
 fi
 ```
