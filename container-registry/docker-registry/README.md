@@ -1,6 +1,6 @@
 # docker-registry
 
-This directory contains instructions and a script for standing up an instance of the basic [Docker Registry](https://docs.docker.com/registry/). This example is just a "toy" registry for experiments to avoid having to use the public Docker Hub. Clearly for production a more production ready private repository is required.
+This directory contains instructions and a script for standing up an instance of the basic [Docker Registry](https://docs.docker.com/registry/). This example is just a "toy" registry for experiments to avoid having to use the public Docker Hub. Clearly for production a more production ready private repository configuration is required.
 
 ### Some Useful resources
 - https://docs.docker.com/registry/
@@ -22,13 +22,21 @@ docker run --rm -d \
 This will launch an insecure registry bound to port 5000. To test it:
 ```
 docker pull ubuntu
+```
+```
 docker tag ubuntu localhost:5000/ubuntu
+```
+```
 docker push localhost:5000/ubuntu
 ```
 The private network IP address of the local machine (e.g. `hostname -I | awk '{print $1}'`) may also be used as follows:
 ```
 docker pull ubuntu
+```
+```
 docker tag ubuntu $(hostname -I | awk '{print $1}'):5000/ubuntu
+```
+```
 docker push $(hostname -I | awk '{print $1}'):5000/ubuntu
 ```
 Remember of course that this registry is insecure.....
@@ -45,14 +53,13 @@ The information in this section was gleaned from the following resources:
 - https://blog.container-solutions.com/adding-self-signed-registry-certs-docker-mac
 
 The gist is to use the openssl configuration file usually found in `/etc/ssl/openssl.cnf`as a starting point and add the required IP address as an alt name:
+
+First:
 ```
-First
-
 cp /etc/ssl/openssl.cnf .
-
-Then modify the copy of openssl.cnf as follows:
-
-
+```
+to copy the template openssl configuration file from /etc/ssl/openssl.cnf  to the current directory, then modify the copy of openssl.cnf as follows:
+```
 1. uncomment (by removing the hash mark)
    req_extensions = v3_req # The extensions to add to a certificate request
 2. Modify the v3_req section as follows:
@@ -117,3 +124,15 @@ or alternatively, to add the certificate to a local keychain only (rather than f
 security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain ca.crt
 ```
 The change will take effect after restarting Docker for Mac.
+
+This registry example is using the default 
+HTTPS port 443, so we may omit the port from the Docker commands as follows:
+```
+docker pull ubuntu
+```
+```
+docker tag ubuntu $(hostname -I | awk '{print $1}')/ubuntu
+```
+```
+docker push $(hostname -I | awk '{print $1}')/ubuntu
+```
